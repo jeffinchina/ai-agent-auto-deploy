@@ -29,4 +29,10 @@ cursor-agent --version
 
 If the command is missing, confirm Git Bash or WSL was installed before running the CLI installer.
 
+Test harnesses can run verification without installing:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -VerifyOnly
+```
+
 Clean Windows VM real install validation is still pending.

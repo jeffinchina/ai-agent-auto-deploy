@@ -49,6 +49,16 @@ if (Test-Path $cursorInstaller) {
     Pass "Cursor explicit-mode failure checks passed"
 }
 
+$mockVerifier = Join-Path $Root "tests\verify-windows-installer-mocks.ps1"
+if (Test-Path $mockVerifier) {
+    $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $mockVerifier -Root $Root 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        $tail = ($output | Select-Object -Last 30) -join "`n"
+        Fail "Windows installer mock verification failed:`n$tail"
+    }
+    Pass "Windows installer mock verification passed"
+}
+
 $buildScript = Join-Path $Root "tools\build-windows-agent-packages.ps1"
 if (Test-Path $buildScript) {
     $tempDist = Join-Path ([System.IO.Path]::GetTempPath()) ("ai-agent-auto-deploy-dist-" + [guid]::NewGuid().ToString("N"))

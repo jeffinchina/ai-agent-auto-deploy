@@ -3,6 +3,7 @@ param(
     [string]$Release = "latest",
     [switch]$InstallDesktopApp,
     [switch]$SkipLoginHint,
+    [switch]$VerifyOnly,
     [switch]$DryRun
 )
 
@@ -10,7 +11,7 @@ $ErrorActionPreference = "Stop"
 $VERSION = "0.1.0"
 $LOGDIR = Join-Path $PSScriptRoot "logs"
 New-Item -ItemType Directory -Path $LOGDIR -Force | Out-Null
-$LOGFILE = Join-Path $LOGDIR "codex-windows-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+$LOGFILE = Join-Path $LOGDIR "codex-windows-$(Get-Date -Format 'yyyyMMdd-HHmmss-fff')-$PID.log"
 
 function Sanitize($s) {
     if ($null -eq $s) { return "" }
@@ -56,6 +57,10 @@ function Preflight {
 }
 
 function Install-CodexCli {
+    if ($VerifyOnly) {
+        Info "VerifyOnly: 跳过 Codex CLI 安装"
+        return
+    }
     if ($DryRun) {
         Info "DryRun: 跳过 Codex CLI 下载与安装"
         return
@@ -82,6 +87,10 @@ function Install-CodexCli {
 
 function Install-CodexDesktop {
     if (-not $InstallDesktopApp) { return }
+    if ($VerifyOnly) {
+        Info "VerifyOnly: 跳过 Codex 桌面 App 安装"
+        return
+    }
     if ($DryRun) {
         Info "DryRun: 跳过 Codex 桌面 App 安装"
         return

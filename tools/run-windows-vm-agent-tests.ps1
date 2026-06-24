@@ -113,7 +113,13 @@ foreach ($agentId in $agents) {
 }
 Write-TextFile (Join-Path $resultsDir "PLAN.md") ($planLines -join "`r`n")
 
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "tools\build-windows-agent-packages.ps1") -Root $Root -SharedDir $SharedDir | Out-Host
+$buildOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "tools\build-windows-agent-packages.ps1") -Root $Root -SharedDir $SharedDir 2>&1
+$buildExit = $LASTEXITCODE
+$buildOutput | Out-Host
+if ($buildExit -ne 0) {
+    Write-TextFile (Join-Path $resultsDir "build-windows-agent-packages-failed.txt") (($buildOutput | ForEach-Object { [string]$_ }) -join "`r`n")
+    throw "Windows package build failed before VM checks. See $resultsDir"
+}
 
 if ($PlanOnly) {
     Write-Host "Plan written to: $resultsDir" -ForegroundColor Green

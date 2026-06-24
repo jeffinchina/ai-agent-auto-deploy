@@ -32,4 +32,10 @@ First use normally requires:
 codex login
 ```
 
+Test harnesses can run verification without installing:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -VerifyOnly
+```
+
 Clean Windows VM real install validation is still pending.

@@ -2,6 +2,7 @@
 param(
     [string]$Tag = "latest",
     [switch]$RunOnboarding,
+    [switch]$VerifyOnly,
     [switch]$DryRun
 )
 
@@ -9,7 +10,7 @@ $ErrorActionPreference = "Stop"
 $VERSION = "0.1.0"
 $LOGDIR = Join-Path $PSScriptRoot "logs"
 New-Item -ItemType Directory -Path $LOGDIR -Force | Out-Null
-$LOGFILE = Join-Path $LOGDIR "openclaw-windows-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+$LOGFILE = Join-Path $LOGDIR "openclaw-windows-$(Get-Date -Format 'yyyyMMdd-HHmmss-fff')-$PID.log"
 
 function Sanitize($s) {
     if ($null -eq $s) { return "" }
@@ -56,6 +57,10 @@ function Preflight {
 }
 
 function Install-OpenClaw {
+    if ($VerifyOnly) {
+        Info "VerifyOnly: 跳过 OpenClaw 安装"
+        return
+    }
     if ($DryRun) {
         Info "DryRun: 跳过 OpenClaw 官方安装脚本下载与执行"
         return
@@ -92,7 +97,7 @@ function Verify {
     $v = Invoke-Captured $cmd.Source @("--version") 60
     Log $v.StdOut
     Log $v.StdErr
-    if ($v.ExitCode -ne 0) { Warn "openclaw --version 返回非 0，可能需要重新打开终端或完成首次配置" }
+    if ($v.ExitCode -ne 0) { Fail "openclaw --version 返回非 0" "请重新打开终端后重试；如果仍失败，请检查安装日志。" }
     else { Ok "openclaw 可用: $($v.StdOut.Trim())" }
     Info "首次使用可运行: openclaw onboard"
 }

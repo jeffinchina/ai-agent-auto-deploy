@@ -2,6 +2,7 @@
 param(
     [switch]$InstallDesktop,
     [switch]$InstallCliWithBash,
+    [switch]$VerifyOnly,
     [switch]$DryRun
 )
 
@@ -9,7 +10,7 @@ $ErrorActionPreference = "Stop"
 $VERSION = "0.1.0"
 $LOGDIR = Join-Path $PSScriptRoot "logs"
 New-Item -ItemType Directory -Path $LOGDIR -Force | Out-Null
-$LOGFILE = Join-Path $LOGDIR "cursor-windows-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+$LOGFILE = Join-Path $LOGDIR "cursor-windows-$(Get-Date -Format 'yyyyMMdd-HHmmss-fff')-$PID.log"
 
 function Sanitize($s) {
     if ($null -eq $s) { return "" }
@@ -61,10 +62,10 @@ function Preflight {
     if ([Environment]::OSVersion.Platform -ne "Win32NT") { Fail "当前脚本仅支持 Windows" "请使用 Windows 10/11。" }
     if (-not [Environment]::Is64BitOperatingSystem) { Fail "不支持 32 位 Windows" "请换用 64 位 Windows。" }
     Ok "Windows 64 位"
-    if (-not $DryRun -and -not $InstallCliWithBash -and -not $InstallDesktop) {
+    if (-not $DryRun -and -not $VerifyOnly -and -not $InstallCliWithBash -and -not $InstallDesktop) {
         Fail "未选择 Cursor 安装模式" "CLI 安装请加 -InstallCliWithBash；桌面 App 当前请从 https://cursor.com/download 手动安装。"
     }
-    if (-not $DryRun -and $InstallDesktop -and -not $InstallCliWithBash) {
+    if (-not $DryRun -and -not $VerifyOnly -and $InstallDesktop -and -not $InstallCliWithBash) {
         Fail "Cursor 桌面 App 自动安装尚未实现" "请使用官方下载页安装桌面 App；CLI 自动安装请加 -InstallCliWithBash。"
     }
     if ($InstallCliWithBash) {
@@ -76,6 +77,10 @@ function Preflight {
 }
 
 function Install-CursorCli {
+    if ($VerifyOnly) {
+        Info "VerifyOnly: 跳过 Cursor CLI 安装"
+        return
+    }
     if (-not $InstallCliWithBash) {
         if ($DryRun) { Warn "DryRun: 未选择 Cursor CLI 安装模式" }
         Info "需要 CLI 时可加 -InstallCliWithBash，或在 Git Bash/WSL 中运行: curl https://cursor.com/install -fsS | bash"
@@ -99,6 +104,10 @@ function Install-CursorCli {
 
 function Install-CursorDesktop {
     if (-not $InstallDesktop) { return }
+    if ($VerifyOnly) {
+        Info "VerifyOnly: 跳过 Cursor 桌面 App 安装"
+        return
+    }
     if ($DryRun) {
         Info "DryRun: 跳过 Cursor 桌面 App 安装"
     } else {
