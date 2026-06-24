@@ -7,22 +7,46 @@
 
 param()
 
-$VERSION   = "3.2.2"
+$VERSION    = "3.2.3"
 $INSTALL_DIR = "$env:LOCALAPPDATA\ClaudeCodeAgent"
-$CC_DIR    = "$env:LOCALAPPDATA\cc-switch"
-$GIT_DIR   = "$INSTALL_DIR\PortableGit"
-$DEEPSEEK  = "https://api.deepseek.com/anthropic"
-$MODEL     = "deepseek-v4-pro"
-$MODEL_F   = "deepseek-v4-flash"
+$CC_DIR     = "$env:LOCALAPPDATA\cc-switch"
+$GIT_DIR    = "$INSTALL_DIR\PortableGit"
+$ASSET_DIR  = "$PSScriptRoot\assets"
+$CLAUDE_OFFLINE_DIR = "$ASSET_DIR\claude-code-offline"
+$DEEPSEEK   = "https://api.deepseek.com/anthropic"
+$MODEL      = "deepseek-v4-pro"
+$MODEL_F    = "deepseek-v4-flash"
 $NPM_MIRROR = "https://registry.npmmirror.com"
-$GIT_URL   = "https://github.com/git-for-windows/git/releases/download/v2.54.0.windows.1/PortableGit-2.54.0-64-bit.7z.exe"
-$TOTAL     = 6
+$GIT_URL    = "https://github.com/git-for-windows/git/releases/download/v2.54.0.windows.1/PortableGit-2.54.0-64-bit.7z.exe"
+$TOTAL      = 7
 
 # ---- log ----
 $LOGDIR = "$PSScriptRoot\logs"
-if (-not (Test-Path $LOGDIR)) { New-Item -ItemType Directory -Path $LOGDIR -Force | Out-Null }
+try {
+    if (-not (Test-Path $LOGDIR)) { New-Item -ItemType Directory -Path $LOGDIR -Force -ErrorAction Stop | Out-Null }
+    $logProbe = Join-Path $LOGDIR ".write-test"
+    Set-Content -Path $logProbe -Value "ok" -Encoding ASCII -ErrorAction Stop
+    Remove-Item -Path $logProbe -Force -ErrorAction SilentlyContinue
+} catch {
+    $LOGDIR = Join-Path $env:TEMP "CCDeploy-logs"
+    if (-not (Test-Path $LOGDIR)) { New-Item -ItemType Directory -Path $LOGDIR -Force | Out-Null }
+}
 $LOGFILE = "$LOGDIR\deploy-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
-function L($m) { $l = "[$(Get-Date -Format 'HH:mm:ss')] $m"; Add-Content $LOGFILE $l -Encoding UTF8 }
+
+function Sanitize($s) {
+    if ($null -eq $s) { return "" }
+    $text = [string]$s
+    $text = $text -replace 'sk-[A-Za-z0-9_\-]+', 'sk-***'
+    $text = $text -replace '(?i)Bearer\s+[A-Za-z0-9_\-\.=]+', 'Bearer ***'
+    $text = $text -replace '(?i)(ANTHROPIC_AUTH_TOKEN\s*["'':=]+\s*)[^,"'';\s}]+', '${1}***'
+    $text = $text -replace '(?i)(Authorization\s*["'':=]+\s*)[^,"'';\s}]+', '${1}***'
+    return $text
+}
+
+function L($m) {
+    $l = "[$(Get-Date -Format 'HH:mm:ss')] $(Sanitize $m)"
+    Add-Content $LOGFILE $l -Encoding UTF8
+}
 
 # ---- output ----
 function PC($c,$s) { Write-Host $s -ForegroundColor $c }
@@ -31,6 +55,14 @@ function ERR($s)   { PC Red      "  [ERR]  $s"; L "[ERR] $s" }
 function WARN($s)  { PC Yellow   "  [WARN] $s"; L "[WARN] $s" }
 function INFO($s)  { PC Gray     "  [INFO] $s"; L "[INFO] $s" }
 function ACT($s)   { PC DarkCyan "  [=>]   $s"; L "[ACT] $s" }
+
+function Fail($message, $hint) {
+    ERR $message
+    if ($hint) { INFO "建议: $hint" }
+    INFO "日志: $LOGFILE"
+    Read-Host "回车退出"
+    exit 1
+}
 
 function Phase($t) {
     $script:n++
@@ -56,6 +88,88 @@ function Banner {
     PC Cyan ""
 }
 
+function Test-WriteAccess($path) {
+    try {
+        New-Item -ItemType Directory -Path $path -Force -ErrorAction Stop | Out-Null
+        $tmp = Join-Path $path ".ccdeploy-write-test"
+        Set-Content -Path $tmp -Value "ok" -Encoding ASCII -ErrorAction Stop
+        Remove-Item -Path $tmp -Force -ErrorAction SilentlyContinue
+        return $true
+    } catch {
+        L "Write test failed for ${path}: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Get-AssetPath($name) {
+    $rootPath = Join-Path $ASSET_DIR $name
+    if (Test-Path $rootPath) { return (Resolve-Path $rootPath).Path }
+    $offlinePath = Join-Path $CLAUDE_OFFLINE_DIR $name
+    if (Test-Path $offlinePath) { return (Resolve-Path $offlinePath).Path }
+    return $null
+}
+
+function Test-AssetManifest([string[]]$RequiredNames, [string[]]$OptionalNames = @()) {
+    $manifestFile = Join-Path $ASSET_DIR "manifest.json"
+    if (-not (Test-Path $manifestFile)) {
+        if ($RequiredNames.Count -gt 0) {
+            Fail "未找到资源清单: assets\manifest.json" "请重新复制完整安装包，或重新下载发布包。"
+        }
+        WARN "未找到 assets\manifest.json，在线安装时跳过资源哈希校验"
+        return
+    }
+
+    try {
+        $manifest = Get-Content $manifestFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch {
+        Fail "资源清单格式错误" "请重新复制完整安装包，或重新下载发布包。"
+    }
+
+    if (-not $manifest.assets -or @($manifest.assets).Count -eq 0) {
+        Fail "资源清单为空" "请重新复制完整安装包，或重新下载发布包。"
+    }
+
+    if ($manifest.version -and $manifest.version -ne $VERSION) {
+        Fail "资源清单版本 $($manifest.version) 与脚本版本 $VERSION 不一致" "请不要混用不同版本的 deploy.ps1 和 assets 文件夹。"
+    }
+
+    $namesToCheck = @()
+    $namesToCheck += @($RequiredNames)
+    foreach ($name in @($OptionalNames)) {
+        if ($name -and (Get-AssetPath $name)) { $namesToCheck += $name }
+    }
+
+    foreach ($name in ($namesToCheck | Where-Object { $_ } | Select-Object -Unique)) {
+        $asset = @($manifest.assets | Where-Object { $_.name -eq $name }) | Select-Object -First 1
+        if (-not $asset) {
+            Fail "资源清单缺少条目: $name" "请重新复制完整安装包，或重新下载发布包。"
+        }
+        $path = Get-AssetPath $asset.name
+        if (-not $path) {
+            Fail "缺少离线资源: $($asset.name)" "请确认 assets 文件夹完整，或重新下载发布包。"
+        }
+
+        if ($asset.sha256) {
+            ACT "校验资源: $($asset.name)"
+            $actual = (Get-FileHash -Algorithm SHA256 -Path $path).Hash.ToUpperInvariant()
+            $expected = ([string]$asset.sha256).ToUpperInvariant()
+            if ($actual -ne $expected) {
+                Fail "资源校验失败: $($asset.name)" "文件可能损坏或被替换。请删除当前安装包后重新复制。"
+            }
+        }
+    }
+    OK "资源清单校验通过"
+}
+
+function Test-NetworkQuick {
+    try {
+        $null = Invoke-WebRequest "https://api.deepseek.com" -TimeoutSec 5 -UseBasicParsing
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 function Find-GitBash {
     $candidates = @()
     if ($env:CLAUDE_CODE_GIT_BASH_PATH) { $candidates += $env:CLAUDE_CODE_GIT_BASH_PATH.Trim() }
@@ -76,33 +190,175 @@ function Find-GitBash {
     return $null
 }
 
-# ============ Phase 1: 环境检测 ============
-function P1 {
-    Phase "环境检测"
+function Find-ClaudeCmd {
+    $cl = Get-Command claude -EA 0
+    if ($cl) { return $cl.Source }
+    if ($script:nd) {
+        $p = Join-Path $script:nd "claude.cmd"
+        if (Test-Path $p) { return $p }
+    }
+    try {
+        $np = & npm config get prefix 2>$null
+        if ($np) {
+            $p = Join-Path $np.Trim() "claude.cmd"
+            if (Test-Path $p) { return $p }
+        }
+    } catch {}
+    return $null
+}
 
-    # 磁盘
+function Quote-Arg($arg) {
+    $value = [string]$arg
+    if ($value -notmatch '[\s"]') { return $value }
+    return '"' + ($value -replace '(\\*)"', '$1$1\"' -replace '(\\+)$', '$1$1') + '"'
+}
+
+function Join-CommandLineArgs([string[]]$items) {
+    return (@($items) | ForEach-Object { Quote-Arg $_ }) -join ' '
+}
+
+function Invoke-ProcessCapture {
+    param(
+        [Parameter(Mandatory=$true)][string]$file,
+        [Parameter(Mandatory=$true)][string[]]$arguments,
+        [Parameter(Mandatory=$true)][int]$timeoutSec
+    )
+
+    $result = @{ ExitCode = $null; StdOut = ""; StdErr = ""; TimedOut = $false }
+
+    try {
+        $argLine = Join-CommandLineArgs $arguments
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $file
+        $psi.Arguments = $argLine
+        $psi.UseShellExecute = $false
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.CreateNoWindow = $true
+        $p = New-Object System.Diagnostics.Process
+        $p.StartInfo = $psi
+        [void]$p.Start()
+        $outTask = $p.StandardOutput.ReadToEndAsync()
+        $errTask = $p.StandardError.ReadToEndAsync()
+        $done = $p.WaitForExit($timeoutSec * 1000)
+        if (-not $done) {
+            $result.TimedOut = $true
+            try { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue } catch {}
+        } else {
+            $result.ExitCode = $p.ExitCode
+            $p.WaitForExit()
+        }
+        $result.StdOut = Sanitize $outTask.Result
+        $result.StdErr = Sanitize $errTask.Result
+    } catch {
+        $result.StdErr = Sanitize $_.Exception.Message
+        $result.ExitCode = 1
+    } finally {}
+    return $result
+}
+
+function Get-PlainTextFromSecureString($secure) {
+    $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+    try {
+        return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
+    } finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
+    }
+}
+
+function Get-HttpStatus($err) {
+    try {
+        if ($err.Exception.Response -and $err.Exception.Response.StatusCode) {
+            return [int]$err.Exception.Response.StatusCode
+        }
+    } catch {}
+    return 0
+}
+
+function Write-CommandLog($prefix, $lines) {
+    foreach ($line in @($lines)) {
+        if ($null -ne $line -and ([string]$line).Trim()) {
+            L "[$prefix] $line"
+        }
+    }
+}
+
+function Get-ManifestAssetNamesByRole($rolePattern) {
+    $manifestFile = Join-Path $ASSET_DIR "manifest.json"
+    if (-not (Test-Path $manifestFile)) { return @() }
+    try {
+        $manifest = Get-Content $manifestFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        return @($manifest.assets | Where-Object { $_.role -match $rolePattern } | Select-Object -ExpandProperty name)
+    } catch {
+        return @()
+    }
+}
+
+# ============ Phase 1: 环境检测 + 资源校验 ============
+function P1 {
+    Phase "环境检测 + 资源校验"
+
+    if ([Environment]::OSVersion.Platform -ne "Win32NT") {
+        Fail "当前脚本仅支持 Windows" "请使用 Windows 10/11 64 位系统运行。"
+    }
+    if (-not [Environment]::Is64BitOperatingSystem) {
+        Fail "不支持 32 位 Windows" "请换用 64 位 Windows。"
+    }
+    OK "系统: Windows 64 位"
+    INFO "PowerShell: $($PSVersionTable.PSVersion)"
+
     $d = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
     $g = [math]::Round($d.FreeSpace / 1GB, 1)
     INFO "C盘可用: ${g}GB"
-    if ($g -lt 1) { ERR "磁盘不足"; Read-Host "回车退出"; exit 1 }
+    if ($g -lt 2) { Fail "C盘空间不足" "至少保留 2GB 可用空间，建议 5GB 以上。" }
+    if ($g -lt 5) { WARN "C盘空间偏低，建议清理到 5GB 以上" }
 
-    # 资源包
-    $script:hasNodeZip = Test-Path "$PSScriptRoot\assets\node-v20.18.0-win-x64.zip"
-    $script:hasCcZip   = Test-Path "$PSScriptRoot\assets\cc-switch-portable.zip"
-    $script:gitSfx     = Get-ChildItem "$PSScriptRoot\assets\PortableGit-*-64-bit.7z.exe" -EA 0 | Select-Object -First 1
+    if (-not (Test-WriteAccess $INSTALL_DIR)) {
+        Fail "无法写入安装目录" "请确认当前用户有权限写入 %LOCALAPPDATA%。"
+    }
+    if (-not (Test-WriteAccess $LOGDIR)) {
+        Fail "无法写入日志目录" "请把安装包复制到本机桌面或用户目录后重试。"
+    }
+    OK "写入权限正常"
+
+    $script:hasNodeZip = Test-Path "$ASSET_DIR\node-v20.18.0-win-x64.zip"
+    $script:hasCcZip   = Test-Path "$ASSET_DIR\cc-switch-portable.zip"
+    $script:gitSfx     = Get-ChildItem "$ASSET_DIR\PortableGit-*-64-bit.7z.exe" -EA 0 | Select-Object -First 1
     $script:hasTgz     = $false
-    if (Test-Path "$PSScriptRoot\assets\claude-code-offline") {
-        $script:hasTgz = (@(Get-ChildItem "$PSScriptRoot\assets\claude-code-offline\*.tgz" -EA 0).Count -ge 2)
+    if (Test-Path $CLAUDE_OFFLINE_DIR) {
+        $script:hasTgz = (@(Get-ChildItem "$CLAUDE_OFFLINE_DIR\*.tgz" -EA 0).Count -ge 2)
     }
     INFO "资源: Node=$($script:hasNodeZip) CcSwitch=$($script:hasCcZip) Claude=$($script:hasTgz) Git=$([bool]$script:gitSfx)"
 
-    # 网络
-    try { $null = iwr "https://api.deepseek.com" -TimeoutSec 5 -UseBasicParsing; $script:net = $true; OK "网络: DeepSeek 可达" }
-    catch { $script:net = $false; WARN "网络: 未连接" }
+    $script:net = Test-NetworkQuick
+    if ($script:net) { OK "网络: DeepSeek 入口可达" }
+    else { WARN "网络: 暂未确认可达，稍后会用 API Key 再验证" }
 
-    if ($script:hasNodeZip) { $script:mode = "offline"; OK "策略: U盘离线" }
-    elseif ($script:net)    { $script:mode = "online";  OK "策略: 在线下载" }
-    else { ERR "无资源包且无网络"; Read-Host "回车退出"; exit 1 }
+    if ($script:hasNodeZip -and $script:hasTgz) {
+        $script:mode = "offline"
+        $required = @(
+            "node-v20.18.0-win-x64.zip",
+            "anthropic-ai-claude-code-2.1.170.tgz",
+            "anthropic-ai-claude-code-win32-x64-2.1.170.tgz"
+        )
+        if (-not (Find-GitBash)) {
+            $required += "PortableGit-2.54.0-64-bit.7z.exe"
+        }
+        Test-AssetManifest -RequiredNames $required -OptionalNames @("cc-switch-portable.zip")
+        OK "策略: 离线资源优先"
+    } elseif ($script:net) {
+        $script:mode = "online"
+        Test-AssetManifest -RequiredNames @() -OptionalNames @(
+            "node-v20.18.0-win-x64.zip",
+            "anthropic-ai-claude-code-2.1.170.tgz",
+            "anthropic-ai-claude-code-win32-x64-2.1.170.tgz",
+            "PortableGit-2.54.0-64-bit.7z.exe",
+            "cc-switch-portable.zip"
+        )
+        OK "策略: 在线下载"
+    } else {
+        Fail "缺少离线资源且网络不可用" "请复制完整 assets 文件夹，或连接网络后重试。"
+    }
 }
 
 # ============ Phase 2: Node.js ============
@@ -119,23 +375,26 @@ function P2 {
             OK "使用系统 Node.js"
             return
         }
+        WARN "系统 Node.js 版本过低，将使用内置 Node.js"
     }
 
     $script:ownNode = $true
     if ($script:hasNodeZip) {
         ACT "解压 Node.js..."
-        Expand-Archive "$PSScriptRoot\assets\node-v20.18.0-win-x64.zip" $INSTALL_DIR -Force
+        Expand-Archive "$ASSET_DIR\node-v20.18.0-win-x64.zip" $INSTALL_DIR -Force
     } elseif ($script:net) {
         ACT "下载 Node.js..."
         $u = "https://npmmirror.com/mirrors/node/v20.18.0/node-v20.18.0-win-x64.zip"
-        $t = "$env:TEMP\node.zip"
-        iwr $u -OutFile $t -UseBasicParsing -TimeoutSec 300
+        $t = "$env:TEMP\node-v20.18.0-win-x64.zip"
+        Invoke-WebRequest $u -OutFile $t -UseBasicParsing -TimeoutSec 300
         Expand-Archive $t $INSTALL_DIR -Force
-        ri $t -Force -EA 0
-    } else { ERR "无法获取 Node.js"; Read-Host "回车退出"; exit 1 }
+        Remove-Item $t -Force -EA 0
+    } else {
+        Fail "无法获取 Node.js" "请确认 assets 中存在 node-v20.18.0-win-x64.zip。"
+    }
 
     $f = Get-ChildItem $INSTALL_DIR -Directory -Filter "node-v20.*" | Select-Object -First 1
-    if (-not $f) { ERR "解压失败"; Read-Host "回车退出"; exit 1 }
+    if (-not $f) { Fail "Node.js 解压失败" "请重新复制安装包后重试。" }
     $script:nd = $f.FullName
     $v = & "$($script:nd)\node.exe" --version
     OK "Node.js $v"
@@ -153,26 +412,41 @@ function P3 {
     & npm config set registry $NPM_MIRROR 2>$null
     INFO "npm prefix: $(npm config get prefix)"
 
-    # 安装
     if ($script:hasTgz) {
         ACT "离线安装 Claude Code..."
-        $ts = Get-ChildItem "$PSScriptRoot\assets\claude-code-offline\*.tgz"
-        $a = ($ts | %{ "`"$($_.FullName)`"" }) -join ' '
-        Invoke-Expression "npm install -g $a" 2>&1 | Out-Null
+        $manifestTgz = Get-ManifestAssetNamesByRole "Claude Code"
+        if (@($manifestTgz).Count -gt 0) {
+            $ts = @($manifestTgz | ForEach-Object {
+                $p = Join-Path $CLAUDE_OFFLINE_DIR $_
+                if (-not (Test-Path $p)) { Fail "缺少 Claude Code 离线包: $_" "请重新复制完整安装包。" }
+                Get-Item $p
+            })
+        } else {
+            $ts = @(Get-ChildItem "$CLAUDE_OFFLINE_DIR\*.tgz")
+        }
+        if (@($ts).Count -lt 2) { Fail "Claude Code 离线包不完整" "请确认 claude-code-offline 中包含 wrapper 和 win32-x64 两个 tgz。" }
+        $npmOutput = & npm install -g --offline --no-audit --no-fund @($ts.FullName) 2>&1
     } elseif ($script:net) {
         ACT "在线安装 Claude Code..."
-        & npm install -g @anthropic-ai/claude-code 2>&1 | Out-Null
-    } else { ERR "无法安装 Claude Code"; Read-Host "回车退出"; exit 1 }
+        $npmOutput = & npm install -g @anthropic-ai/claude-code 2>&1
+    } else {
+        Fail "无法安装 Claude Code" "请确认离线 tgz 资源完整，或连接网络后重试。"
+    }
+    $npmExit = $LASTEXITCODE
+    Write-CommandLog "npm" $npmOutput
 
-    if ($LASTEXITCODE -ne 0) { ERR "安装失败"; Read-Host "回车退出"; exit 1 }
+    if ($npmExit -ne 0) {
+        $tail = @($npmOutput | Select-Object -Last 8) -join " | "
+        if ($tail) { INFO "npm 摘要: $(Sanitize $tail)" }
+        Fail "Claude Code 安装失败" "请查看日志中的 npm 错误，并重新运行安装脚本。"
+    }
 
-    # 定位 claude
-    $cl = Get-Command claude -EA 0
-    if (-not $cl) { $p = Join-Path $script:nd "claude.cmd"; if (Test-Path $p) { $cl = @{Source=$p} } }
-    if (-not $cl) { $np = & npm config get prefix 2>$null; $p = Join-Path $np "claude.cmd"; if (Test-Path $p) { $cl = @{Source=$p} } }
-    if (-not $cl) { ERR "claude 命令不可用"; Read-Host "回车退出"; exit 1 }
+    $cl = Find-ClaudeCmd
+    if (-not $cl) { Fail "claude 命令不可用" "请重新运行安装脚本，或检查 Node.js npm prefix。" }
 
-    $ver = & $cl.Source --version 2>$null
+    $ver = & $cl --version 2>$null
+    if (-not $ver) { Fail "claude 已安装但无法读取版本" "请打开新终端输入 claude --version 查看具体错误。" }
+    $script:claudeCmd = $cl
     OK "Claude Code $ver"
 }
 
@@ -182,8 +456,11 @@ function P4Runtime {
 
     $pwsh = Get-Command pwsh -EA 0
     if ($pwsh) {
+        $script:pwshPath = $pwsh.Source
         OK "PowerShell 7 已存在"
-        return
+        INFO "pwsh: $($pwsh.Source)"
+    } else {
+        INFO "未检测到 PowerShell 7，将使用 Git Bash 运行环境"
     }
 
     $bash = Find-GitBash
@@ -192,26 +469,26 @@ function P4Runtime {
             ACT "解压 PortableGit..."
             if (Test-Path $GIT_DIR) { Remove-Item -Recurse -Force $GIT_DIR -EA 0 }
             New-Item -ItemType Directory -Path $GIT_DIR -Force | Out-Null
-            $p = Start-Process -FilePath $script:gitSfx.FullName -ArgumentList @("-y", "-o$GIT_DIR") -Wait -PassThru -WindowStyle Hidden
-            if ($p.ExitCode -ne 0) { throw "PortableGit 解压失败: $($p.ExitCode)" }
+            $gitArgs = Join-CommandLineArgs @("-y", "-o$GIT_DIR")
+            $p = Start-Process -FilePath $script:gitSfx.FullName -ArgumentList $gitArgs -Wait -PassThru -WindowStyle Hidden
+            if ($p.ExitCode -ne 0) { Fail "PortableGit 解压失败" "错误码: $($p.ExitCode)。请重新复制 PortableGit 离线包。" }
         } elseif ($script:net) {
             ACT "下载 PortableGit..."
             $tmp = "$env:TEMP\PortableGit.7z.exe"
-            iwr $GIT_URL -OutFile $tmp -UseBasicParsing -TimeoutSec 300
+            Invoke-WebRequest $GIT_URL -OutFile $tmp -UseBasicParsing -TimeoutSec 300
             if (Test-Path $GIT_DIR) { Remove-Item -Recurse -Force $GIT_DIR -EA 0 }
             New-Item -ItemType Directory -Path $GIT_DIR -Force | Out-Null
-            $p = Start-Process -FilePath $tmp -ArgumentList @("-y", "-o$GIT_DIR") -Wait -PassThru -WindowStyle Hidden
-            ri $tmp -Force -EA 0
-            if ($p.ExitCode -ne 0) { throw "PortableGit 解压失败: $($p.ExitCode)" }
+            $gitArgs = Join-CommandLineArgs @("-y", "-o$GIT_DIR")
+            $p = Start-Process -FilePath $tmp -ArgumentList $gitArgs -Wait -PassThru -WindowStyle Hidden
+            Remove-Item $tmp -Force -EA 0
+            if ($p.ExitCode -ne 0) { Fail "PortableGit 解压失败" "错误码: $($p.ExitCode)。请重新运行安装脚本。" }
         } else {
-            ERR "缺少 Git Bash 或 PowerShell 7"
-            Read-Host "回车退出"
-            exit 1
+            Fail "缺少 Git Bash 或 PowerShell 7" "Claude Code on Windows 需要 Git Bash 或 PowerShell 7；请复制完整安装包。"
         }
         $bash = Find-GitBash
     }
 
-    if (-not $bash) { throw "未找到 Git Bash bash.exe" }
+    if (-not $bash) { Fail "未找到 Git Bash bash.exe" "请安装 Git for Windows，或重新运行本安装包。" }
     $script:gitBash = $bash.Trim()
     $env:CLAUDE_CODE_GIT_BASH_PATH = $script:gitBash
     [Environment]::SetEnvironmentVariable("CLAUDE_CODE_GIT_BASH_PATH", $script:gitBash, "User")
@@ -220,139 +497,214 @@ function P4Runtime {
 }
 
 # ============ Phase 5: API Key + 配置 ============
-function P4 {
+function P5Config {
     Phase "配置 DeepSeek API Key"
 
-    # 获取 Key
     PC White ""
     PC White "  +-------------------------------------------+"
     PC White "  |  请输入 DeepSeek API Key                  |"
-    PC White "  |  格式: sk-xxxxxxxxxxxxxxxx                |"
+    PC White "  |  输入时不会显示，粘贴后直接回车即可       |"
     PC White "  |  获取: platform.deepseek.com -> API Keys  |"
     PC White "  +-------------------------------------------+"
     PC White ""
+
     for ($i = 1; $i -le 3; $i++) {
-        $k = Read-Host "  API Key"
+        $secure = Read-Host "  API Key" -AsSecureString
+        $k = Get-PlainTextFromSecureString $secure
         if ([string]::IsNullOrWhiteSpace($k)) { WARN "不能为空 ($i/3)"; continue }
         if (-not $k.StartsWith("sk-")) { WARN "格式应以 sk- 开头 ($i/3)"; continue }
+
         ACT "验证 Key..."
         try {
-            $b = @{ model="deepseek-v4-pro"; messages=@(@{role="user";content="hi"}); max_tokens=1 } | ConvertTo-Json -Compress
+            $b = @{ model=$MODEL; messages=@(@{role="user";content="hi"}); max_tokens=1 } | ConvertTo-Json -Compress
             $h = @{ "Content-Type"="application/json"; Authorization="Bearer $k" }
-            $r = Invoke-RestMethod -Uri "https://api.deepseek.com/chat/completions" -Method Post -Body $b -Headers $h -TimeoutSec 10
+            $null = Invoke-RestMethod -Uri "https://api.deepseek.com/chat/completions" -Method Post -Body $b -Headers $h -TimeoutSec 20
             OK "Key 有效"
             $script:key = $k
             break
         } catch {
-            $c = [int]$_.Exception.Response.StatusCode
-            if ($c -eq 401) { ERR "Key 无效 (401)" }
-            elseif ($c -eq 0) { WARN "网络不通，跳过验证"; $script:key = $k; break }
-            else { WARN "异常($c)，跳过"; $script:key = $k; break }
+            $c = Get-HttpStatus $_
+            if ($c -eq 401) {
+                ERR "Key 无效 (401)"
+            } elseif ($c -eq 402) {
+                ERR "DeepSeek 账户余额不足或无可用额度 (402)"
+            } elseif ($c -eq 429) {
+                WARN "DeepSeek 暂时限流 (429)，请稍后重试 ($i/3)"
+            } elseif ($c -ge 500) {
+                WARN "DeepSeek 服务暂时异常 ($c)，请稍后重试 ($i/3)"
+            } else {
+                WARN "Key 验证失败，网络或端点异常 ($i/3)"
+                L $_.Exception.Message
+            }
         }
     }
-    if (-not $script:key) { ERR "未获取到有效 Key"; Read-Host "回车退出"; exit 1 }
+    if (-not $script:key) { Fail "未获取到可验证的 DeepSeek API Key" "请确认 Key、账户余额、网络连接后重新运行。" }
 
-    # ---- 写入 Claude Code settings.json（核心配置） ----
     ACT "写入 Claude Code 配置..."
     $cfgDir = "$env:USERPROFILE\.claude"
     New-Item -ItemType Directory -Path $cfgDir -Force | Out-Null
     $cfgFile = "$cfgDir\settings.json"
     $cfg = @{ env = @{} }
+    $existingEnv = @{}
 
-    # 保留已有非 env 字段
     if (Test-Path $cfgFile) {
-        try { $old = Get-Content $cfgFile -Raw -Encoding UTF8 | ConvertFrom-Json
-              $old.PSObject.Properties | %{ if ($_.Name -ne "env") { $cfg[$_.Name] = $_.Value } }
-        } catch { WARN "现有配置格式异常，将覆盖" }
+        Copy-Item $cfgFile "$cfgFile.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')" -Force -EA 0
+        try {
+            $old = Get-Content $cfgFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            $old.PSObject.Properties | ForEach-Object {
+                if ($_.Name -ne "env") { $cfg[$_.Name] = $_.Value }
+            }
+            if ($old.env) {
+                $old.env.PSObject.Properties | ForEach-Object {
+                    $existingEnv[$_.Name] = $_.Value
+                }
+            }
+        } catch {
+            WARN "现有 Claude 配置格式异常，将保留备份后覆盖"
+        }
     }
 
-    # 关键：使用 ANTHROPIC_AUTH_TOKEN（不是 ANTHROPIC_API_KEY）
-    # 第三方 Anthropic 兼容端点通过 AUTH_TOKEN 传 Key
-    $cfgEnv = @{
+    $cfgEnv = @{}
+    foreach ($name in $existingEnv.Keys) {
+        $cfgEnv[$name] = $existingEnv[$name]
+    }
+    $managedEnv = @{
         ANTHROPIC_BASE_URL   = $DEEPSEEK
         ANTHROPIC_AUTH_TOKEN = $script:key
         ANTHROPIC_MODEL      = $MODEL
-        ANTHROPIC_DEFAULT_OPUS_MODEL  = $MODEL
+        ANTHROPIC_DEFAULT_OPUS_MODEL   = $MODEL
         ANTHROPIC_DEFAULT_SONNET_MODEL = $MODEL
-        ANTHROPIC_DEFAULT_HAIKU_MODEL = $MODEL_F
+        ANTHROPIC_DEFAULT_HAIKU_MODEL  = $MODEL_F
+        CLAUDE_CODE_SUBAGENT_MODEL     = $MODEL
+        CLAUDE_CODE_EFFORT_LEVEL       = "medium"
     }
-    if ($script:gitBash) { $cfgEnv.CLAUDE_CODE_GIT_BASH_PATH = $script:gitBash }
+    if ($script:gitBash) { $managedEnv.CLAUDE_CODE_GIT_BASH_PATH = $script:gitBash }
+    foreach ($name in $managedEnv.Keys) {
+        $cfgEnv[$name] = $managedEnv[$name]
+    }
     $cfg.env = $cfgEnv
 
-    $cfg | ConvertTo-Json -Depth 5 | Set-Content $cfgFile -Encoding UTF8
+    $cfg | ConvertTo-Json -Depth 20 | Set-Content $cfgFile -Encoding UTF8
+    $script:configFile = $cfgFile
     OK "Claude Code 配置完成"
     INFO "端点: $DEEPSEEK"
     INFO "模型: $MODEL"
     INFO "认证: ANTHROPIC_AUTH_TOKEN"
 }
 
-# ============ Phase 6: PATH + CcSwitch(可选) + 验证 ============
-function P5 {
+# ============ Phase 6: Claude 启动 + DeepSeek 对话验证 ============
+function P6Verify {
+    Phase "Claude 启动 + DeepSeek 对话验证"
+
+    $env:Path = "$($script:nd);$env:Path"
+    if ($script:gitBash) { $env:CLAUDE_CODE_GIT_BASH_PATH = $script:gitBash }
+
+    $cl = Find-ClaudeCmd
+    if (-not $cl) { Fail "找不到 claude 命令" "请重新运行安装脚本，或打开新终端输入 claude --version。" }
+    $script:claudeCmd = $cl
+
+    ACT "验证 claude --version..."
+    $versionCheck = Invoke-ProcessCapture -file $cl -arguments @("--version") -timeoutSec 40
+    if ($versionCheck.TimedOut) {
+        Fail "claude --version 超时" "请重启终端后手动运行 claude --version，并把日志发给技术支持。"
+    }
+    if ($versionCheck.ExitCode -ne 0 -or -not $versionCheck.StdOut.Trim()) {
+        L $versionCheck.StdErr
+        Fail "claude 启动验证失败" "请确认 Git Bash / PowerShell 7 依赖已安装，并查看日志。"
+    }
+    OK "claude 可启动: $($versionCheck.StdOut.Trim())"
+
+    ACT "验证 DeepSeek 对话..."
+    $prompt = "Reply with exactly OK"
+    $chatCheck = Invoke-ProcessCapture -file $cl -arguments @("-p", $prompt) -timeoutSec 90
+    if ($chatCheck.TimedOut) {
+        Fail "DeepSeek 对话验证超时" "请检查网络是否能访问 api.deepseek.com，然后重新运行安装脚本。"
+    }
+    $combined = (($chatCheck.StdOut + "`n" + $chatCheck.StdErr).Trim())
+    L "Claude verify output: $combined"
+    if ($chatCheck.ExitCode -ne 0) {
+        Fail "DeepSeek 对话验证失败" "请检查 API Key 是否有效、账户是否有余额、网络是否可访问 DeepSeek。"
+    }
+    if ($combined.Trim() -ne "OK") {
+        INFO "返回内容: $combined"
+        Fail "DeepSeek 对话验证未返回预期结果" "请检查模型配置是否可用，或稍后重新运行安装脚本。"
+    }
+    OK "DeepSeek 对话验证通过"
+}
+
+# ============ Phase 7: PATH + CcSwitch(可选) + 桌面说明 ============
+function P7Finish {
     Phase "PATH 持久化 + CcSwitch 安装"
 
-    # ---- 1. PATH 持久化 ----
     try {
         $up = [Environment]::GetEnvironmentVariable("Path", "User")
+        if (-not $up) { $up = "" }
         if ($up -notlike "*$($script:nd)*") {
             [Environment]::SetEnvironmentVariable("Path", "$($script:nd);$up", "User")
             OK "PATH 已持久化"
+        } else {
+            OK "PATH 已存在"
         }
-    } catch { WARN "PATH 持久化失败" }
+    } catch {
+        WARN "PATH 持久化失败，新终端可能识别不到 claude"
+        L $_.Exception.Message
+    }
 
-    # PowerShell 执行策略
-    try { Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force >$null 2>&1
-          OK "PowerShell 执行策略已设置"
-    } catch { WARN "执行策略设置失败，请手动运行: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned" }
+    try {
+        Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force -ErrorAction Stop | Out-Null
+        OK "PowerShell 执行策略已设置"
+    } catch {
+        WARN "执行策略设置失败，不影响 claude 使用"
+        INFO "需要时可手动运行: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned"
+    }
 
-    # ---- 2. CcSwitch（强制重新安装） ----
     $script:ccReady = $false
-
-    # 删除旧版本
     if (Test-Path $CC_DIR) {
         ACT "删除旧版 CcSwitch..."
         Remove-Item -Recurse -Force $CC_DIR -EA 0
     }
     New-Item -ItemType Directory -Path $CC_DIR -Force | Out-Null
 
-    # 优先在线下载最新版
     $ccDownloaded = $false
     if ($script:net) {
         ACT "在线检查 CcSwitch 最新版..."
         try {
-            $api = iwr "https://api.github.com/repos/farion1231/cc-switch/releases/latest" -UseBasicParsing -TimeoutSec 10 | ConvertFrom-Json
+            $api = Invoke-WebRequest "https://api.github.com/repos/farion1231/cc-switch/releases/latest" -UseBasicParsing -TimeoutSec 10 | ConvertFrom-Json
             $latestTag = $api.tag_name
             INFO "最新版: $latestTag"
             $dlUrl = $api.assets | Where-Object { $_.browser_download_url -like "*Windows-Portable*" } | Select-Object -ExpandProperty browser_download_url -First 1
             if ($dlUrl) {
                 ACT "下载 CcSwitch $latestTag..."
                 $tmp = "$env:TEMP\cc-switch-latest.zip"
-                iwr $dlUrl -OutFile $tmp -UseBasicParsing -TimeoutSec 120
+                Invoke-WebRequest $dlUrl -OutFile $tmp -UseBasicParsing -TimeoutSec 120
                 Expand-Archive $tmp $CC_DIR -Force
-                ri $tmp -Force -EA 0
+                Remove-Item $tmp -Force -EA 0
                 $ccDownloaded = $true
                 OK "CcSwitch $latestTag 已安装"
             }
         } catch {
             WARN "在线检查失败，使用离线版"
+            L $_.Exception.Message
         }
     }
 
     if (-not $ccDownloaded -and $script:hasCcZip) {
         ACT "解压 CcSwitch 离线版..."
-        Expand-Archive "$PSScriptRoot\assets\cc-switch-portable.zip" $CC_DIR -Force
+        Expand-Archive "$ASSET_DIR\cc-switch-portable.zip" $CC_DIR -Force
         OK "CcSwitch 离线版已安装"
     }
 
     if (Test-Path "$CC_DIR\cc-switch.exe") {
         $script:ccReady = $true
         OK "CcSwitch 就绪"
+        try {
+            ACT "启动 CcSwitch..."
+            Start-Process "$CC_DIR\cc-switch.exe" -WindowStyle Normal
+            Start-Sleep 2
+        } catch {
+            WARN "CcSwitch 自动启动失败，可稍后用桌面快捷方式打开"
+        }
 
-        # 启动 CcSwitch 主界面
-        ACT "启动 CcSwitch..."
-        Start-Process "$CC_DIR\cc-switch.exe" -WindowStyle Normal
-        Start-Sleep 3
-
-        # 桌面快捷方式
         try {
             $desktop = [Environment]::GetFolderPath("Desktop")
             $shortcut = Join-Path $desktop "CcSwitch.lnk"
@@ -363,23 +715,14 @@ function P5 {
             $link.Description = "CcSwitch - Claude Code 提供商管理器"
             $link.Save()
             OK "桌面快捷方式已创建"
-        } catch { WARN "快捷方式创建失败" }
+            INFO "快捷方式: $shortcut"
+        } catch {
+            WARN "快捷方式创建失败"
+        }
     } else {
         WARN "CcSwitch 未安装（不影响 Claude Code 使用）"
     }
 
-    # ---- 3. 验证 claude ----
-    ACT "验证 claude..."
-    $cl = Get-Command claude -EA 0
-    if (-not $cl) { $p = Join-Path $script:nd "claude.cmd"; if (Test-Path $p) { $cl = @{Source=$p} } }
-    if ($cl) {
-        $v = & $cl.Source --version 2>$null
-        if ($v) { OK "claude 可用: $v" }
-    } else {
-        WARN "新开终端后生效"
-    }
-
-    # ---- 4. 桌面使用说明 ----
     try {
         $desktop = [Environment]::GetFolderPath("Desktop")
         $readmeFile = Join-Path $desktop "Claude Code 使用说明.txt"
@@ -390,35 +733,37 @@ function P5 {
 ===============================================
 
 【启动 Claude Code】
-  1. 打开 PowerShell 或 CMD 终端
+  1. 打开新的 PowerShell 或 CMD 终端
   2. 输入 claude 并按回车
   3. 等待启动完成后即可对话
 
 【常用命令】
   claude                     启动交互模式
   claude --version           查看版本
-  claude "你的问题"          直接提问（不进入交互模式）
+  claude -p "你好"           直接提问
   /help                      查看帮助
   /clear                     清空对话
 
-【运行依赖】
-  已自动配置 Git Bash / PowerShell 7 运行环境
-  如遇启动异常，请重新打开终端后再输入 claude
+【已自动配置】
+  模型: DeepSeek V4 Pro
+  端点: $DEEPSEEK
+  配置: %USERPROFILE%\.claude\settings.json
+  运行依赖: Git Bash / PowerShell 7
 
-【桌面快捷方式】
-  CcSwitch 提供商管理器快捷方式已在桌面，双击即可打开
-  用于切换 AI 模型提供商（DeepSeek、Kimi 等）
-  管理 API Key、查看使用量
+【CcSwitch】
+  桌面已创建 CcSwitch 快捷方式
+  可用于后续手动添加或切换更多模型提供商
+  当前 Claude Code 默认走 DeepSeek 直连配置，不依赖 CcSwitch 才能使用
 
 【常见问题】
   Q: 输入 claude 回车后提示"无法识别"？
-  A: 重启电脑后再试，或打开新的终端窗口
+  A: 关闭终端，重新打开 PowerShell 或 CMD 后再试。
 
-  Q: Claude Code 提示 /login？
-  A: 输入 /login 按提示操作，或在 CcSwitch 中重新配置 API Key
+  Q: 提示需要 Git for Windows 或 PowerShell 7？
+  A: 重新运行安装脚本；本安装包会自动配置 PortableGit。
 
-  Q: 如何切换模型？
-  A: 打开桌面 CcSwitch 快捷方式 → 添加提供商 → 配置 API Key → 启用
+  Q: DeepSeek 对话失败？
+  A: 检查 API Key、账户余额、网络连接，并把日志发给技术支持。
 
 ===============================================
   技术支持：请联系提供此安装包的团队
@@ -427,14 +772,17 @@ function P5 {
 "@
         Set-Content -Path $readmeFile -Value $readmeContent -Encoding UTF8
         OK "桌面使用说明已生成"
-    } catch { WARN "使用说明生成失败" }
+        INFO "使用说明: $readmeFile"
+    } catch {
+        WARN "使用说明生成失败"
+    }
 }
 
 # ============ 完成 ============
 function Done {
     PC Cyan ""
     PC Cyan "  +============================================+"
-    PC Cyan "  |           部署完成！                       |"
+    PC Cyan "  |           部署完成并通过验证！             |"
     PC Cyan "  +============================================+"
     PC White ""
     PC White "  新开终端输入: claude"
@@ -443,13 +791,13 @@ function Done {
     INFO "端点: $DEEPSEEK"
     INFO "配置: %USERPROFILE%\.claude\settings.json"
     if ($script:gitBash) { INFO "Git Bash: $script:gitBash" }
+    if ($script:pwshPath) { INFO "PowerShell 7: $script:pwshPath" }
     INFO "日志: $LOGFILE"
     if ($script:ccReady) {
         INFO "CcSwitch 已安装: %LOCALAPPDATA%\cc-switch\cc-switch.exe"
-        INFO "如何打开: 双击运行 → 系统托盘找 CcSwitch 图标 → 右键 → 打开主面板"
-        INFO "如何配置: 主面板点击'添加提供商' → 选择 DeepSeek → 输入 API Key → 启用代理"
+        INFO "如何打开: 双击桌面 CcSwitch 快捷方式，或在系统托盘中打开"
+        INFO "如何配置: 主面板点击'添加提供商' → 选择模型服务 → 输入 API Key → 启用"
     }
-    INFO "桌面快捷方式: 桌面上有 CcSwitch 快捷方式"
     INFO "桌面使用说明: 桌面上已生成 Claude Code 使用说明.txt"
     PC Cyan ""
     Read-Host "  按回车退出"
@@ -463,8 +811,9 @@ try {
     P2
     P3
     P4Runtime
-    P4
-    P5
+    P5Config
+    P6Verify
+    P7Finish
     Done
 } catch {
     ERR "未预期错误: $($_.Exception.Message)"
@@ -473,3 +822,4 @@ try {
     Read-Host "回车退出"
     exit 1
 }
+

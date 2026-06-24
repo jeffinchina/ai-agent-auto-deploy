@@ -3,8 +3,9 @@
 ## Phase 1: Windows Stability
 
 - Make install steps idempotent.
-- Add offline asset hash verification.
-- Improve error messages for missing network, bad API keys, and corrupted packages.
+- Keep offline asset hash verification mandatory for release packages.
+- Improve error messages for missing network, bad API keys, corrupted packages, missing runtime dependencies, and failed smoke tests.
+- Require fresh-terminal Claude launch verification and minimal DeepSeek conversation verification before release.
 - Add uninstall/reset support.
 - Add automated smoke test scripts for Windows VM.
 
@@ -28,9 +29,8 @@ Candidate agents:
 
 - Claude Code
 - Codex CLI
-- Gemini CLI
-- Aider
-- Cline/Roo Code helper setup
+- OpenClaw
+- Cursor
 
 ## Phase 4: Multi-system Support
 
@@ -40,3 +40,9 @@ Do not force one giant cross-platform script. Prefer system-specific installers 
 - `macos/deploy.sh`
 - `linux/deploy.sh`
 - shared provider and asset manifests
+
+## Phase 5: Release Experience
+
+- Keep single-agent packages as the support-friendly default.
+- Add an optional unified entry after individual packages are proven in VM tests.
+- The unified entry should call the same tested modules, not duplicate installer logic.
