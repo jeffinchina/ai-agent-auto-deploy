@@ -11,9 +11,6 @@ jobs:
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
-      - name: Verify Windows package
-        shell: powershell
-        run: .\tests\verify-windows-package.ps1
       - name: Verify all installers
         shell: powershell
         run: .\tests\verify-all-installers.ps1

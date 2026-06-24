@@ -64,6 +64,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\verify-windows-packa
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\verify-all-installers.ps1
 ```
 
+`verify-windows-package.ps1` requires the full local release assets. GitHub Actions only runs `verify-all-installers.ps1` because large offline binaries are distributed as release assets, not committed to git.
+
 VM 端到端测试仍以 VirtualBox clean-base 快照为准。真实 DeepSeek 对话验证需要用户输入自己的 API Key，不应在自动化脚本、日志或 GitHub 中硬编码。
 
 ## 后续路线
