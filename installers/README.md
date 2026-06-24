@@ -34,6 +34,18 @@ The first cross-agent installers are online installers:
 
 They are intentionally conservative. They verify platform, call official upstream installers, run basic version/doctor checks where available, and write logs locally. They are not yet offline release packages.
 
+Windows online-wrapper packages can be generated with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-windows-agent-packages.ps1
+```
+
+To sync them into the VirtualBox shared folder used by the current test VM:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-windows-agent-packages.ps1 -SharedDir D:\VMs\CCDeployTest\Shared
+```
+
 ## Release Rule
 
 Do not publish any new agent/OS package until it has:

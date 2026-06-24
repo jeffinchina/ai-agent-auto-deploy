@@ -8,7 +8,13 @@ $ErrorActionPreference = "Stop"
 function Pass($message) { Write-Host "[PASS] $message" -ForegroundColor Green }
 function Fail($message) { throw "[FAIL] $message" }
 
-$psFiles = Get-ChildItem -Path (Join-Path $Root "installers") -Recurse -Filter "*.ps1"
+$psFiles = @()
+foreach ($relative in @("installers", "tools")) {
+    $path = Join-Path $Root $relative
+    if (Test-Path $path) {
+        $psFiles += Get-ChildItem -Path $path -Recurse -Filter "*.ps1"
+    }
+}
 foreach ($file in $psFiles) {
     $tokens = $null
     $errors = $null
@@ -20,7 +26,8 @@ foreach ($file in $psFiles) {
 }
 Pass "PowerShell installers parse"
 
-foreach ($file in $psFiles) {
+$installerPsFiles = Get-ChildItem -Path (Join-Path $Root "installers") -Recurse -Filter "*.ps1"
+foreach ($file in $installerPsFiles) {
     $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $file.FullName -DryRun 2>&1
     if ($LASTEXITCODE -ne 0) {
         $tail = ($output | Select-Object -Last 20) -join "`n"
@@ -28,6 +35,32 @@ foreach ($file in $psFiles) {
     }
 }
 Pass "PowerShell installer dry-runs passed"
+
+$buildScript = Join-Path $Root "tools\build-windows-agent-packages.ps1"
+if (Test-Path $buildScript) {
+    $tempDist = Join-Path ([System.IO.Path]::GetTempPath()) ("ai-agent-auto-deploy-dist-" + [guid]::NewGuid().ToString("N"))
+    try {
+        $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $buildScript -Root $Root -OutputDir $tempDist -NoZip 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            $tail = ($output | Select-Object -Last 20) -join "`n"
+            Fail "Windows package build dry-run failed:`n$tail"
+        }
+        foreach ($agent in @("codex", "openclaw", "cursor")) {
+            $folder = Join-Path $tempDist "$agent-windows-v0.1.0"
+            if (-not (Test-Path (Join-Path $folder "install.ps1"))) {
+                Fail "Windows package build missing install.ps1 for $agent"
+            }
+            if (-not (Test-Path (Join-Path $folder "run.cmd"))) {
+                Fail "Windows package build missing run.cmd for $agent"
+            }
+        }
+        Pass "Windows package build dry-run passed"
+    } finally {
+        if (Test-Path $tempDist) {
+            Remove-Item -LiteralPath $tempDist -Recurse -Force
+        }
+    }
+}
 
 $bash = Get-Command bash -ErrorAction SilentlyContinue
 if (-not $bash) {
@@ -53,7 +86,7 @@ if ($bash) {
     Write-Host "[WARN] bash not found; skipped shell syntax checks" -ForegroundColor Yellow
 }
 
-$scanRoots = @("installers", "shared", "docs", "tests")
+$scanRoots = @("installers", "shared", "docs", "tests", "tools")
 foreach ($relative in $scanRoots) {
     $path = Join-Path $Root $relative
     if (-not (Test-Path $path)) { continue }

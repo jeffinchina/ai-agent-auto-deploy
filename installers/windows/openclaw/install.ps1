@@ -11,17 +11,48 @@ $LOGDIR = Join-Path $PSScriptRoot "logs"
 New-Item -ItemType Directory -Path $LOGDIR -Force | Out-Null
 $LOGFILE = Join-Path $LOGDIR "openclaw-windows-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 
-function Log($m) { Add-Content $LOGFILE "[$(Get-Date -Format 'HH:mm:ss')] $m" -Encoding UTF8 }
+function Sanitize($s) {
+    if ($null -eq $s) { return "" }
+    return ([string]$s) -replace 'sk-[A-Za-z0-9_\-]+', 'sk-***' -replace '(?i)Bearer\s+[A-Za-z0-9_\-\.=]+', 'Bearer ***'
+}
+function Log($m) { Add-Content $LOGFILE "[$(Get-Date -Format 'HH:mm:ss')] $(Sanitize $m)" -Encoding UTF8 }
 function Say($c,$m) { Write-Host $m -ForegroundColor $c; Log $m }
 function Ok($m) { Say Green "[OK] $m" }
 function Info($m) { Say Gray "[INFO] $m" }
 function Warn($m) { Say Yellow "[WARN] $m" }
 function Fail($m,$hint) { Say Red "[ERR] $m"; if($hint){ Info "建议: $hint" }; Info "日志: $LOGFILE"; exit 1 }
 
+function Invoke-Captured($file, [string[]]$arguments, [int]$timeoutSec = 300) {
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $file
+    $psi.Arguments = ($arguments | ForEach-Object {
+        $a = [string]$_
+        if ($a -match '[\s"]') { '"' + ($a -replace '"','\"') + '"' } else { $a }
+    }) -join ' '
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.CreateNoWindow = $true
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo = $psi
+    [void]$p.Start()
+    $outTask = $p.StandardOutput.ReadToEndAsync()
+    $errTask = $p.StandardError.ReadToEndAsync()
+    $done = $p.WaitForExit($timeoutSec * 1000)
+    if(-not $done){ try { $p.Kill() } catch {}; return @{ ExitCode = 124; StdOut = ""; StdErr = "timeout after $timeoutSec seconds" } }
+    $p.WaitForExit()
+    return @{ ExitCode = $p.ExitCode; StdOut = Sanitize $outTask.Result; StdErr = Sanitize $errTask.Result }
+}
+
 function Preflight {
     Say Cyan "OpenClaw Windows Installer v$VERSION"
     if ([Environment]::OSVersion.Platform -ne "Win32NT") { Fail "当前脚本仅支持 Windows" "请使用 Windows 10/11。" }
-    Ok "Windows 检测通过"
+    if (-not [Environment]::Is64BitOperatingSystem) { Fail "不支持 32 位 Windows" "请换用 64 位 Windows。" }
+    Ok "Windows 64 位"
+    if ($DryRun) {
+        Info "DryRun: 跳过网络连通性验证"
+    }
+    Ok "安装前检测完成"
 }
 
 function Install-OpenClaw {
@@ -34,14 +65,19 @@ function Install-OpenClaw {
         return
     }
     Info "下载 OpenClaw 官方 Windows 安装脚本..."
-    $script = Invoke-WebRequest -UseBasicParsing -Uri "https://openclaw.ai/install.ps1" -TimeoutSec 120
-    $block = [scriptblock]::Create([Text.Encoding]::UTF8.GetString([byte[]]$script.Content))
+    $scriptPath = Join-Path $env:TEMP "openclaw-install.ps1"
+    Invoke-WebRequest -UseBasicParsing -Uri "https://openclaw.ai/install.ps1" -OutFile $scriptPath -TimeoutSec 120
+    $args = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $scriptPath, "-Tag", $Tag)
     if ($RunOnboarding) {
-        & $block -Tag $Tag 2>&1 | ForEach-Object { Log $_; Write-Host $_ }
+        Info "将运行官方 onboarding"
     } else {
-        & $block -Tag $Tag -NoOnboard 2>&1 | ForEach-Object { Log $_; Write-Host $_ }
+        $args += "-NoOnboard"
     }
-    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { Fail "OpenClaw 安装失败" "请检查日志和网络。" }
+    $r = Invoke-Captured "powershell.exe" $args 600
+    Log $r.StdOut
+    Log $r.StdErr
+    Remove-Item -LiteralPath $scriptPath -Force -ErrorAction SilentlyContinue
+    if ($r.ExitCode -ne 0) { Fail "OpenClaw 安装失败" "请检查日志和网络，或手动运行官方安装命令。" }
     Ok "OpenClaw 安装命令完成"
 }
 
@@ -53,10 +89,11 @@ function Verify {
     }
     $cmd = Get-Command openclaw -ErrorAction SilentlyContinue
     if (-not $cmd) { Fail "未找到 openclaw 命令" "请重新打开终端或检查安装日志。" }
-    $v = & $cmd.Source --version 2>&1
-    Log $v
-    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { Warn "openclaw --version 返回非 0" }
-    else { Ok "openclaw 可用: $v" }
+    $v = Invoke-Captured $cmd.Source @("--version") 60
+    Log $v.StdOut
+    Log $v.StdErr
+    if ($v.ExitCode -ne 0) { Warn "openclaw --version 返回非 0，可能需要重新打开终端或完成首次配置" }
+    else { Ok "openclaw 可用: $($v.StdOut.Trim())" }
     Info "首次使用可运行: openclaw onboard"
 }
 

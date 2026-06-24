@@ -7,6 +7,7 @@ test-sandbox/
 # Generated release folders and archives
 把这个文件夹拷到待安装的电脑/
 把这个文件夹拷到待安装的电脑_V*/
+dist/
 *.zip
 
 # Large offline binaries are released as GitHub Release assets.
