@@ -25,22 +25,34 @@ The v3.2.2 package was validated on the clean VM:
 - DeepSeek API key validation succeeded.
 - `claude -p "Reply with exactly OK"` returned `OK`.
 
-## v3.2.3 Status
+## v3.2.3 Result
 
-Prepared for clean VM validation:
+The v3.2.3 package was tested on the clean VM and the user reported success after entering a real DeepSeek API key manually.
 
 - Package copied to host shared folder: `D:\VMs\CCDeployTest\Shared\把这个文件夹拷到待安装的电脑_V3.2.3`
 - ZIP SHA256: `9B7D4CD8B69349359928D3EC7356F1E6D2EA391CB4E042B2284AA7F2AEA6CCDF`
-- VM restored to `clean-base` and booted to desktop.
 - Host-side package self-check passed: parser, version sync, manifest hashes, key leak scan, hardening checks.
 - DeepSeek API minimal check passed once with user-provided key; no key was written to files or logs.
+- Fresh PowerShell could start Claude Code after the runtime dependency fix.
 
-Manual validation still required:
+Remaining improvement: capture a structured test artifact during the next clean VM run, such as sanitized logs and screenshots, so release evidence does not rely only on chat history.
 
-- Run `一键部署.cmd` inside the VM from the V3.2.3 package.
-- Enter a real DeepSeek API Key manually.
-- Confirm Phase 6 reports both `claude --version` and DeepSeek conversation verification as passed.
-- Open a fresh PowerShell and run `claude`, then send a short prompt.
+## Windows Agent Online Wrapper Status
+
+Generated host-side packages are available in:
+
+- `C:\Users\65295\ai-agent-auto-deploy\dist\windows`
+- `D:\VMs\CCDeployTest\Shared`
+
+These packages currently have static, dry-run, package, manifest, and SHA256 verification only. Clean VM real install validation is still pending for:
+
+- Codex Windows
+- OpenClaw Windows
+- Cursor Windows
+
+## Automation Note
+
+VirtualBox Guest Additions are installed and the VM has a logged-in `codex` user, but `VBoxManage guestcontrol` requires a valid guest username/password. Without that credential, clean VM installs must be performed manually or through visible UI automation.
 
 ## Known VM Notes
 

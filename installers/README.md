@@ -40,10 +40,17 @@ Windows online-wrapper packages can be generated with:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-windows-agent-packages.ps1
 ```
 
+macOS online-wrapper packages can be generated on Windows for handoff/testing on macOS:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-macos-agent-packages.ps1
+```
+
 To sync them into the VirtualBox shared folder used by the current test VM:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-windows-agent-packages.ps1 -SharedDir D:\VMs\CCDeployTest\Shared
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-macos-agent-packages.ps1 -SharedDir D:\VMs\CCDeployTest\Shared
 ```
 
 ## Release Rule

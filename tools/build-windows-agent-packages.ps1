@@ -101,6 +101,7 @@ $manifest = [ordered]@{
     builtAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     packages = @()
 }
+$testPlan = Join-Path $Root "shared\test-plans\windows-agent-online-wrappers.md"
 
 foreach ($agent in $agents) {
     $sourceDir = Join-Path $Root "installers\windows\$($agent.Id)"
@@ -120,6 +121,9 @@ foreach ($agent in $agents) {
     $sourceReadme = Join-Path $sourceDir "README.md"
     if (Test-Path $sourceReadme) {
         Copy-Item -LiteralPath $sourceReadme -Destination (Join-Path $packageDir "UPSTREAM-NOTES.md") -Force
+    }
+    if (Test-Path $testPlan) {
+        Copy-Item -LiteralPath $testPlan -Destination (Join-Path $packageDir "TEST-PLAN.md") -Force
     }
     New-RunCmd (Join-Path $packageDir "run.cmd")
     New-PackageReadme $agent (Join-Path $packageDir "README.md") $Version

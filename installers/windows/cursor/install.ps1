@@ -61,6 +61,12 @@ function Preflight {
     if ([Environment]::OSVersion.Platform -ne "Win32NT") { Fail "当前脚本仅支持 Windows" "请使用 Windows 10/11。" }
     if (-not [Environment]::Is64BitOperatingSystem) { Fail "不支持 32 位 Windows" "请换用 64 位 Windows。" }
     Ok "Windows 64 位"
+    if (-not $DryRun -and -not $InstallCliWithBash -and -not $InstallDesktop) {
+        Fail "未选择 Cursor 安装模式" "CLI 安装请加 -InstallCliWithBash；桌面 App 当前请从 https://cursor.com/download 手动安装。"
+    }
+    if (-not $DryRun -and $InstallDesktop -and -not $InstallCliWithBash) {
+        Fail "Cursor 桌面 App 自动安装尚未实现" "请使用官方下载页安装桌面 App；CLI 自动安装请加 -InstallCliWithBash。"
+    }
     if ($InstallCliWithBash) {
         $bash = Find-Bash
         if ($bash) { Info "检测到 bash: $bash" }
@@ -71,7 +77,7 @@ function Preflight {
 
 function Install-CursorCli {
     if (-not $InstallCliWithBash) {
-        Warn "默认不在 Windows PowerShell 中直接执行 Cursor 的 bash 安装器"
+        if ($DryRun) { Warn "DryRun: 未选择 Cursor CLI 安装模式" }
         Info "需要 CLI 时可加 -InstallCliWithBash，或在 Git Bash/WSL 中运行: curl https://cursor.com/install -fsS | bash"
         return
     }
@@ -96,7 +102,7 @@ function Install-CursorDesktop {
     if ($DryRun) {
         Info "DryRun: 跳过 Cursor 桌面 App 安装"
     } else {
-        Warn "Cursor 桌面 App 自动下载/静默安装尚未实现"
+        Fail "Cursor 桌面 App 自动下载/静默安装尚未实现" "请使用官方下载页: https://cursor.com/download"
     }
     Info "当前请使用官方下载页: https://cursor.com/download"
 }
@@ -110,7 +116,7 @@ function Verify {
     if ($cursorAgent) {
         Ok "cursor-agent 可用: $($cursorAgent.Source)"
     } else {
-        Warn "未检测到 cursor-agent；若刚安装，请打开新终端后重试。"
+        Fail "未检测到 cursor-agent" "请打开新终端后重试；如果仍失败，请确认 Git Bash/WSL 中的官方安装器是否成功。"
     }
 }
 

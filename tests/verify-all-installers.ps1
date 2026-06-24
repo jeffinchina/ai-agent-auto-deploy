@@ -36,25 +36,108 @@ foreach ($file in $installerPsFiles) {
 }
 Pass "PowerShell installer dry-runs passed"
 
+$cursorInstaller = Join-Path $Root "installers\windows\cursor\install.ps1"
+if (Test-Path $cursorInstaller) {
+    $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $cursorInstaller 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Fail "Cursor installer without an explicit mode should fail instead of reporting success"
+    }
+    $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $cursorInstaller -InstallDesktop 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Fail "Cursor installer -InstallDesktop should fail until desktop automation is implemented"
+    }
+    Pass "Cursor explicit-mode failure checks passed"
+}
+
 $buildScript = Join-Path $Root "tools\build-windows-agent-packages.ps1"
 if (Test-Path $buildScript) {
     $tempDist = Join-Path ([System.IO.Path]::GetTempPath()) ("ai-agent-auto-deploy-dist-" + [guid]::NewGuid().ToString("N"))
     try {
-        $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $buildScript -Root $Root -OutputDir $tempDist -NoZip 2>&1
+        $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $buildScript -Root $Root -OutputDir $tempDist 2>&1
         if ($LASTEXITCODE -ne 0) {
             $tail = ($output | Select-Object -Last 20) -join "`n"
             Fail "Windows package build dry-run failed:`n$tail"
         }
+        $manifestPath = Join-Path $tempDist "windows-agent-packages.json"
+        if (-not (Test-Path $manifestPath)) { Fail "Windows package build missing manifest" }
+        $manifest = Get-Content $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
         foreach ($agent in @("codex", "openclaw", "cursor")) {
             $folder = Join-Path $tempDist "$agent-windows-v0.1.0"
             if (-not (Test-Path (Join-Path $folder "install.ps1"))) {
                 Fail "Windows package build missing install.ps1 for $agent"
             }
+            if (-not (Test-Path (Join-Path $folder "README.md"))) {
+                Fail "Windows package build missing README.md for $agent"
+            }
+            if (-not (Test-Path (Join-Path $folder "UPSTREAM-NOTES.md"))) {
+                Fail "Windows package build missing UPSTREAM-NOTES.md for $agent"
+            }
             if (-not (Test-Path (Join-Path $folder "run.cmd"))) {
                 Fail "Windows package build missing run.cmd for $agent"
             }
+            if (-not (Test-Path (Join-Path $folder "TEST-PLAN.md"))) {
+                Fail "Windows package build missing TEST-PLAN.md for $agent"
+            }
+            $entry = $manifest.packages | Where-Object { $_.id -eq $agent } | Select-Object -First 1
+            if (-not $entry) { Fail "Windows manifest missing $agent" }
+            $zipPath = Join-Path $tempDist $entry.zip
+            if (-not (Test-Path $zipPath)) { Fail "Windows package zip missing for $agent" }
+            $actualHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash
+            if ($actualHash -ne $entry.sha256) { Fail "Windows package hash mismatch for $agent" }
+            $extractDir = Join-Path $tempDist "extract-$agent"
+            Expand-Archive -LiteralPath $zipPath -DestinationPath $extractDir -Force
+            foreach ($required in @("install.ps1", "README.md", "UPSTREAM-NOTES.md", "run.cmd", "TEST-PLAN.md")) {
+                if (-not (Test-Path (Join-Path $extractDir $required))) {
+                    Fail "Windows zip for $agent missing $required"
+                }
+            }
         }
-        Pass "Windows package build dry-run passed"
+        Pass "Windows package build and zip verification passed"
+    } finally {
+        if (Test-Path $tempDist) {
+            Remove-Item -LiteralPath $tempDist -Recurse -Force
+        }
+    }
+}
+
+$macosBuildScript = Join-Path $Root "tools\build-macos-agent-packages.ps1"
+if (Test-Path $macosBuildScript) {
+    $tempDist = Join-Path ([System.IO.Path]::GetTempPath()) ("ai-agent-auto-deploy-macos-dist-" + [guid]::NewGuid().ToString("N"))
+    try {
+        $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $macosBuildScript -Root $Root -OutputDir $tempDist 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            $tail = ($output | Select-Object -Last 20) -join "`n"
+            Fail "macOS package build dry-run failed:`n$tail"
+        }
+        $manifestPath = Join-Path $tempDist "macos-agent-packages.json"
+        if (-not (Test-Path $manifestPath)) { Fail "macOS package build missing manifest" }
+        $manifest = Get-Content $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($agent in @("claude-code", "codex", "openclaw", "cursor")) {
+            $folder = Join-Path $tempDist "$agent-macos-v0.1.0"
+            if (-not (Test-Path (Join-Path $folder "install.sh"))) {
+                Fail "macOS package build missing install.sh for $agent"
+            }
+            if (-not (Test-Path (Join-Path $folder "TEST-PLAN.md"))) {
+                Fail "macOS package build missing TEST-PLAN.md for $agent"
+            }
+            if (-not (Test-Path (Join-Path $folder "README.md"))) {
+                Fail "macOS package build missing README.md for $agent"
+            }
+            $entry = $manifest.packages | Where-Object { $_.id -eq $agent } | Select-Object -First 1
+            if (-not $entry) { Fail "macOS manifest missing $agent" }
+            $zipPath = Join-Path $tempDist $entry.zip
+            if (-not (Test-Path $zipPath)) { Fail "macOS package zip missing for $agent" }
+            $actualHash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash
+            if ($actualHash -ne $entry.sha256) { Fail "macOS package hash mismatch for $agent" }
+            $extractDir = Join-Path $tempDist "extract-$agent"
+            Expand-Archive -LiteralPath $zipPath -DestinationPath $extractDir -Force
+            foreach ($required in @("install.sh", "README.md", "TEST-PLAN.md")) {
+                if (-not (Test-Path (Join-Path $extractDir $required))) {
+                    Fail "macOS zip for $agent missing $required"
+                }
+            }
+        }
+        Pass "macOS package build and zip verification passed"
     } finally {
         if (Test-Path $tempDist) {
             Remove-Item -LiteralPath $tempDist -Recurse -Force
@@ -86,7 +169,7 @@ if ($bash) {
     Write-Host "[WARN] bash not found; skipped shell syntax checks" -ForegroundColor Yellow
 }
 
-$scanRoots = @("installers", "shared", "docs", "tests", "tools")
+$scanRoots = @("installers", "shared", "docs", "tests", "tools", "config", ".github")
 foreach ($relative in $scanRoots) {
     $path = Join-Path $Root $relative
     if (-not (Test-Path $path)) { continue }
@@ -96,6 +179,13 @@ foreach ($relative in $scanRoots) {
         if ($text -match 'sk-[A-Za-z0-9_\-]{12,}' -or $text -match '(?i)Bearer\s+sk-') {
             Fail "possible API key leaked in $($file.FullName)"
         }
+    }
+}
+$rootFiles = Get-ChildItem -Path $Root -File | Where-Object { $_.Extension -in ".ps1",".cmd",".md",".json" }
+foreach ($file in $rootFiles) {
+    $text = Get-Content $file.FullName -Raw -Encoding UTF8
+    if ($text -match 'sk-[A-Za-z0-9_\-]{12,}' -or $text -match '(?i)Bearer\s+sk-') {
+        Fail "possible API key leaked in $($file.FullName)"
     }
 }
 Pass "no obvious API keys in installer text"
