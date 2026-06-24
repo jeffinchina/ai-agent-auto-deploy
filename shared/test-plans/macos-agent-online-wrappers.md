@@ -29,6 +29,8 @@ Required checks:
 - no-secret scan over scripts and docs.
 - package build artifact generation.
 
+The repository workflow also has a manual `workflow_dispatch` smoke entry. Select one agent with `macos_smoke_agent`. This intentionally does not run on every push because it performs real online installs on an ephemeral GitHub macOS runner. Claude Code smoke requires a repository secret named `DEEPSEEK_API_KEY`.
+
 ## Real Mac Release Gate
 
 Before publishing a macOS package, verify on a real Mac or cloud Mac:

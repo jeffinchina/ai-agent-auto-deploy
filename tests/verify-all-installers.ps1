@@ -145,6 +145,25 @@ if (Test-Path $macosBuildScript) {
     }
 }
 
+$vmTestScript = Join-Path $Root "tools\run-windows-vm-agent-tests.ps1"
+if (Test-Path $vmTestScript) {
+    $tempShared = Join-Path ([System.IO.Path]::GetTempPath()) ("ai-agent-auto-deploy-vm-shared-" + [guid]::NewGuid().ToString("N"))
+    try {
+        $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $vmTestScript -Root $Root -SharedDir $tempShared -PlanOnly 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            $tail = ($output | Select-Object -Last 20) -join "`n"
+            Fail "Windows VM test plan generation failed:`n$tail"
+        }
+        $plans = Get-ChildItem -Path (Join-Path $tempShared "vm-results") -Recurse -Filter "PLAN.md" -ErrorAction SilentlyContinue
+        if (-not $plans) { Fail "Windows VM test plan was not generated" }
+        Pass "Windows VM test plan generation passed"
+    } finally {
+        if (Test-Path $tempShared) {
+            Remove-Item -LiteralPath $tempShared -Recurse -Force
+        }
+    }
+}
+
 $bash = Get-Command bash -ErrorAction SilentlyContinue
 if (-not $bash) {
     $candidates = @(

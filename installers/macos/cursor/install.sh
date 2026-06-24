@@ -30,7 +30,7 @@ if command -v cursor-agent >/dev/null 2>&1; then
 elif command -v cursor >/dev/null 2>&1; then
   ok "cursor command available: $(command -v cursor)"
 else
-  warn "Cursor CLI command not found in PATH; open a new terminal and retry."
+  fail "Cursor CLI command not found in PATH; open a new terminal and retry."
 fi
 
 if [ "$INSTALL_DESKTOP" = "1" ]; then

@@ -41,6 +41,13 @@ For each package:
 6. Run the package-specific verification command below.
 7. Save the installer `logs` folder before restoring the snapshot.
 
+When VirtualBox guest credentials are available, the host-side coordinator can generate a plan and run guestcontrol checks:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run-windows-vm-agent-tests.ps1 -PlanOnly
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run-windows-vm-agent-tests.ps1 -GuestUser codex -GuestPasswordFile C:\path\outside\repo\guest-password.txt
+```
+
 ## Package Verification
 
 Codex:

@@ -38,6 +38,6 @@ fi
 if openclaw --version >> "$LOGFILE" 2>&1; then
   ok "openclaw available: $(openclaw --version 2>/dev/null | head -n 1)"
 else
-  warn "openclaw --version returned non-zero; onboarding may still be required"
+  fail "openclaw --version returned non-zero."
 fi
 info "First use: openclaw onboard"

@@ -65,6 +65,15 @@ install_claude() {
 }
 
 read_key() {
+  if [ -n "${DEEPSEEK_API_KEY:-}" ]; then
+    case "$DEEPSEEK_API_KEY" in
+      sk-*) ;;
+      *) fail "DEEPSEEK_API_KEY must start with sk-." ;;
+    esac
+    validate_key "$DEEPSEEK_API_KEY" && DEEPSEEK_KEY="$DEEPSEEK_API_KEY" && return
+    fail "DEEPSEEK_API_KEY did not validate."
+  fi
+
   printf '\nDeepSeek API Key input is hidden. Paste and press Enter.\n'
   for attempt in 1 2 3; do
     printf 'API Key: '
@@ -147,6 +156,7 @@ if [ "$DRY_RUN" = "1" ]; then
   ok "Claude Code macOS dry-run passed"
   exit 0
 fi
+trap 'stty echo 2>/dev/null || true' EXIT
 ensure_node
 install_claude
 read_key

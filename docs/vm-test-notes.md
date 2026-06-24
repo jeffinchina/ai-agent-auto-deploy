@@ -50,6 +50,24 @@ These packages currently have static, dry-run, package, manifest, and SHA256 ver
 - OpenClaw Windows
 - Cursor Windows
 
+To generate a structured test plan and, when guest credentials are available, run guestcontrol-based checks:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run-windows-vm-agent-tests.ps1 -PlanOnly
+```
+
+With a guest password file stored outside this repository, dry-run checks can be executed inside the VM:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run-windows-vm-agent-tests.ps1 -GuestUser codex -GuestPasswordFile C:\path\outside\repo\guest-password.txt
+```
+
+Real install checks mutate the VM and should be run after restoring `clean-base`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run-windows-vm-agent-tests.ps1 -GuestUser codex -GuestPasswordFile C:\path\outside\repo\guest-password.txt -RestoreSnapshot -RunRealInstall
+```
+
 ## Automation Note
 
 VirtualBox Guest Additions are installed and the VM has a logged-in `codex` user, but `VBoxManage guestcontrol` requires a valid guest username/password. Without that credential, clean VM installs must be performed manually or through visible UI automation.

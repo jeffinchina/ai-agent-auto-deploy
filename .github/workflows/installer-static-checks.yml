@@ -4,6 +4,19 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      macos_smoke_agent:
+        description: "Optional real macOS smoke target. Default keeps the workflow static/dry-run only."
+        required: true
+        default: "none"
+        type: choice
+        options:
+          - none
+          - claude-code
+          - codex
+          - openclaw
+          - cursor
 
 jobs:
   windows:
@@ -42,3 +55,39 @@ jobs:
             echo "Possible secret found"
             exit 1
           fi
+
+  macos-smoke:
+    name: Manual macOS smoke
+    if: github.event_name == 'workflow_dispatch' && inputs.macos_smoke_agent != 'none'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run selected macOS smoke
+        shell: bash
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          AGENT: ${{ inputs.macos_smoke_agent }}
+        run: |
+          set -euo pipefail
+          case "$AGENT" in
+            claude-code)
+              if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
+                echo "DEEPSEEK_API_KEY repository secret is required for Claude Code macOS smoke."
+                exit 1
+              fi
+              bash installers/macos/claude-code/install.sh
+              ;;
+            codex)
+              bash installers/macos/codex/install.sh
+              ;;
+            openclaw)
+              bash installers/macos/openclaw/install.sh
+              ;;
+            cursor)
+              bash installers/macos/cursor/install.sh
+              ;;
+            *)
+              echo "Unsupported smoke agent: $AGENT"
+              exit 1
+              ;;
+          esac
