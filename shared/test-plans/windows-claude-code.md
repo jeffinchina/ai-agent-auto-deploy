@@ -21,3 +21,13 @@
 ## Release Gate
 
 Do not publish a GitHub Release tag until static checks and clean VM checks both pass.
+
+## Related Installer Checks
+
+Run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\verify-all-installers.ps1
+```
+
+This validates the cross-agent installer scripts without executing remote installers.

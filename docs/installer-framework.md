@@ -64,3 +64,7 @@ Do not make the unified entry the source of truth. It should call the same teste
 - A package is not releasable until parser checks, manifest hashes, install smoke test, provider smoke test, and fresh-terminal launch all pass.
 - Logs must redact `sk-...` tokens.
 - If a provider supports multiple API styles, verify the exact style used by the target agent, not only a nearby endpoint.
+
+## Online vs Offline Installers
+
+Use online installers for first integration and discovery. Promote a package to offline distribution only after the online path has passed real VM or hosted runner tests and its required assets can be pinned with hashes.

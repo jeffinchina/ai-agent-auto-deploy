@@ -61,6 +61,7 @@ ai-agent-auto-deploy/
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\verify-windows-package.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\verify-all-installers.ps1
 ```
 
 VM 端到端测试仍以 VirtualBox clean-base 快照为准。真实 DeepSeek 对话验证需要用户输入自己的 API Key，不应在自动化脚本、日志或 GitHub 中硬编码。
