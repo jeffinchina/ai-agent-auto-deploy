@@ -1,0 +1,31 @@
+{
+  "version": "3.2.2",
+  "assets": [
+    {
+      "name": "node-v20.18.0-win-x64.zip",
+      "role": "Node.js portable runtime",
+      "sha256": "F5CEA43414CC33024BBE5867F208D1C9C915D6A38E92ABEEE07ED9E563662297"
+    },
+    {
+      "name": "cc-switch-portable.zip",
+      "role": "CcSwitch portable package",
+      "sha256": "B900C65A650FCA97C99F26C7398483FED369D860E56CE053403DEF07C0974F42"
+    },
+    {
+      "name": "PortableGit-2.54.0-64-bit.7z.exe",
+      "role": "Git Bash runtime for Claude Code on Windows",
+      "source": "https://github.com/git-for-windows/git/releases/download/v2.54.0.windows.1/PortableGit-2.54.0-64-bit.7z.exe",
+      "sha256": "BEA006A6CC69673F27B1647E84AB3A68E912FBC175AB6320C5987E012897F311"
+    },
+    {
+      "name": "anthropic-ai-claude-code-2.1.170.tgz",
+      "role": "Claude Code npm package",
+      "sha256": "BD4BAF8B41434BB0F4EECBCC19B5E58450096CE692DEF2E3414A12C201BAA9D1"
+    },
+    {
+      "name": "anthropic-ai-claude-code-win32-x64-2.1.170.tgz",
+      "role": "Claude Code Windows native package",
+      "sha256": "69E32BEA3F59FA773974D619FDD948AA269F0C309C949D85EAF04BC0083457C8"
+    }
+  ]
+}

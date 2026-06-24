@@ -1,0 +1,86 @@
+===============================================
+   Claude Code + CcSwitch + DeepSeek V4 Pro
+   一键部署  |  全自动配置  |  可视化面板
+===============================================
+
+【准备工作】
+
+  1. 注册 DeepSeek 账号
+     访问 https://platform.deepseek.com
+     创建 API Key（格式: sk-xxxxxxxxxxxxxxxx）
+
+  2. 电脑要求
+     - Windows 10/11 64位
+     - 至少 1GB 可用磁盘空间
+     - 无需 VPN / 翻墙
+
+【操作步骤】（仅需 1 分钟）
+
+  1. 将本文件夹拷入U盘，插入目标电脑
+
+  2. 双击运行: 一键部署.cmd
+
+  3. 等待环境检测完成（约10秒）
+
+  4. 当提示输入 API Key 时:
+       请输入 DeepSeek API Key（格式: sk-xxxxxxxxxxxxxxxx）
+     -> 粘贴您的 DeepSeek API Key，按回车
+
+  5. 等待自动安装完成（约2-3分钟）
+
+  6. 看到"部署完成"即为成功
+
+【部署完成后】
+
+  打开新的终端（PowerShell 或 CMD），输入:
+
+    claude              -> 启动 Claude Code 交互模式
+    claude --version    -> 查看版本
+    claude config       -> 查看当前配置
+
+  Claude Code 将自动通过 CcSwitch 代理连接 DeepSeek V4 Pro
+
+  可视化面板:
+    -> 系统托盘找到 CcSwitch 图标，右键打开
+    -> 查看当前提供商、切换模型、管理 API Key
+
+  配置文件位置（一般无需手动编辑）:
+    %USERPROFILE%\.claude\settings.json
+
+  部署日志位置:
+    本文件夹\logs\
+
+【常见问题】
+
+  Q: 提示"无法部署"怎么办？
+  A: 确保 assets/ 目录包含完整的离线资源包:
+     - node-v20.18.0-win-x64.zip
+     - cc-switch-portable.zip
+     - claude-code-offline/*.tgz (2个)
+     或连接网络后重试
+
+  Q: API Key 验证失败？
+  A: 登录 https://platform.deepseek.com 确认 Key 未过期且余额充足
+
+  Q: 部署后 claude 命令找不到？
+  A: 重启终端即可。安装过程已自动配置 PATH
+
+  Q: CcSwitch 代理未就绪？
+  A: 检查 CcSwitch 窗口是否已打开，点击"启用代理"按钮
+     Claude Code 默认使用直连模式作为兜底，不影响使用
+
+  Q: 需要管理员权限吗？
+  A: 不需要。脚本使用便携版 Node.js，无需系统级安装
+
+【技术信息】
+
+  部署模型: DeepSeek V4 Pro
+  API 端点: https://api.deepseek.com/anthropic
+  连接方式: Claude Code -> CcSwitch 代理 -> DeepSeek
+  节点版本: Node.js 20 LTS（便携版）
+  包管理器: npm（npmmirror 国内镜像）
+  CcSwitch: 可视化提供商管理面板
+
+===============================================
+  版本: 3.1.0  |  更新日期: 2026-06-12
+===============================================

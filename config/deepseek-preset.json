@@ -1,0 +1,57 @@
+{
+  "version": "1.0.0",
+  "provider": {
+    "name": "DeepSeek V4 Pro",
+    "slug": "deepseek-v4-pro",
+    "api_format": "openai_chat_completions",
+    "base_url": "https://api.deepseek.com",
+    "models": [
+      {
+        "id": "deepseek-v4-pro",
+        "display_name": "DeepSeek V4 Pro",
+        "context_window": 1000000,
+        "max_output_tokens": 384000,
+        "thinking": {
+          "enabled": true,
+          "reasoning_effort": "max"
+        },
+        "tool_calling": true,
+        "streaming": true,
+        "image_support": false
+      }
+    ],
+    "model_mapping": {
+      "claude-opus-*": "deepseek-v4-pro",
+      "claude-sonnet-*": "deepseek-v4-pro",
+      "claude-haiku-*": "deepseek-v4-pro"
+    }
+  },
+  "claude_code_env": {
+    "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+    "ANTHROPIC_MODEL": "deepseek-v4-pro",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-pro"
+  },
+  "ccswitch_settings": {
+    "proxy": {
+      "port": 15721,
+      "enabled": true,
+      "claude_route": true
+    },
+    "provider_settings": {
+      "auto_switch": false,
+      "failover_enabled": false,
+      "health_check_interval_sec": 30
+    }
+  },
+  "pricing": {
+    "input_cache_hit": 0.025,
+    "input_cache_miss": 3,
+    "output": 6,
+    "currency": "CNY",
+    "unit": "per_1M_tokens"
+  },
+  "api_doc_url": "https://api-docs.deepseek.com",
+  "platform_url": "https://platform.deepseek.com"
+}

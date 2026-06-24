@@ -1,0 +1,38 @@
+# Runtime logs and local test sandboxes
+logs/
+test-sandbox/
+*.log
+
+# Generated release folders and archives
+把这个文件夹拷到待安装的电脑/
+把这个文件夹拷到待安装的电脑_V*/
+*.zip
+
+# Large offline binaries are released as GitHub Release assets.
+assets/*.zip
+assets/*.exe
+assets/claude-code-offline/*.tgz
+
+# Keep lightweight asset metadata in git.
+!assets/
+!assets/manifest.json
+!assets/*.txt
+!assets/claude-code-offline/
+!assets/claude-code-offline/README.txt
+
+# Local/generated experiments
+*.tmp
+*.bak
+*.backup
+gen_*.py
+generate-plan.py
+rebuild-deploy.py
+e2e_test.ps1
+*.docx
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
