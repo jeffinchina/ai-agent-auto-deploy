@@ -27,6 +27,13 @@ jobs:
           find installers -name '*.sh' -print0 | while IFS= read -r -d '' file; do
             bash -n "$file"
           done
+      - name: Run shell dry-runs
+        shell: bash
+        run: |
+          set -euo pipefail
+          find installers/macos -name 'install.sh' -print0 | while IFS= read -r -d '' file; do
+            DRY_RUN=1 bash "$file"
+          done
       - name: Check for obvious secrets
         shell: bash
         run: |

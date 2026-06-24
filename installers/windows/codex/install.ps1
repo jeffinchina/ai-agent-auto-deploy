@@ -2,7 +2,8 @@
 param(
     [string]$Release = "latest",
     [switch]$InstallDesktopApp,
-    [switch]$SkipLoginHint
+    [switch]$SkipLoginHint,
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
@@ -50,11 +51,15 @@ function Preflight {
     if (-not [Environment]::Is64BitOperatingSystem) { Fail "不支持 32 位 Windows" "请换用 64 位 Windows。" }
     Ok "Windows 64 位"
     $winget = Get-Command winget -ErrorAction SilentlyContinue
-    if ($InstallDesktopApp -and -not $winget) { Fail "未找到 winget" "安装 Codex 桌面 App 需要 Windows Package Manager。" }
+    if ($InstallDesktopApp -and -not $DryRun -and -not $winget) { Fail "未找到 winget" "安装 Codex 桌面 App 需要 Windows Package Manager。" }
     Ok "安装前检测完成"
 }
 
 function Install-CodexCli {
+    if ($DryRun) {
+        Info "DryRun: 跳过 Codex CLI 下载与安装"
+        return
+    }
     $existing = Get-Command codex -ErrorAction SilentlyContinue
     if ($existing) {
         Info "检测到 codex: $($existing.Source)"
@@ -77,6 +82,10 @@ function Install-CodexCli {
 
 function Install-CodexDesktop {
     if (-not $InstallDesktopApp) { return }
+    if ($DryRun) {
+        Info "DryRun: 跳过 Codex 桌面 App 安装"
+        return
+    }
     Info "安装 Codex 桌面 App..."
     $r = Invoke-Captured "winget.exe" @("install", "Codex", "-s", "msstore", "--accept-package-agreements", "--accept-source-agreements") 600
     Log $r.StdOut
@@ -86,6 +95,11 @@ function Install-CodexDesktop {
 }
 
 function Verify {
+    if ($DryRun) {
+        Info "DryRun: 跳过 codex --version 和 codex doctor"
+        Ok "Codex Windows dry-run 通过"
+        return
+    }
     $cmd = Get-Command codex -ErrorAction SilentlyContinue
     if (-not $cmd) { Fail "未找到 codex 命令" "请重新打开终端，或检查安装脚本输出。" }
     $ver = Invoke-Captured $cmd.Source @("--version") 60
@@ -115,4 +129,5 @@ try {
 } catch {
     Fail "未预期错误: $($_.Exception.Message)" "请查看日志并重新运行。"
 }
+
 

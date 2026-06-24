@@ -1,7 +1,8 @@
 ﻿#Requires -Version 5.1
 param(
     [switch]$InstallDesktop,
-    [switch]$InstallCliWithBash
+    [switch]$InstallCliWithBash,
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
@@ -33,6 +34,9 @@ Say Cyan "Cursor Windows Installer v$VERSION"
 if ([Environment]::OSVersion.Platform -ne "Win32NT") { Fail "当前脚本仅支持 Windows" "请使用 Windows 10/11。" }
 
 if ($InstallCliWithBash) {
+    if ($DryRun) {
+        Info "DryRun: 跳过 Cursor CLI bash 安装器执行"
+    } else {
     $bash = Find-Bash
     if (-not $bash) { Fail "未找到 Git Bash/WSL bash" "Cursor CLI 官方安装器是 bash 脚本；请先安装 Git for Windows 或 WSL2。" }
     Info "使用官方 Cursor CLI 安装脚本..."
@@ -40,19 +44,26 @@ if ($InstallCliWithBash) {
     & $bash -lc $cmd 2>&1 | ForEach-Object { Log $_; Write-Host $_ }
     if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { Fail "Cursor CLI 安装失败" "请查看日志或手动访问 https://cursor.com/docs/cli/installation。" }
     Ok "Cursor CLI 安装命令完成"
+    }
 } else {
     Warn "默认不在 Windows PowerShell 中直接执行 Cursor 的 bash 安装器"
     Info "需要 CLI 时可加 -InstallCliWithBash，或在 Git Bash/WSL 中运行: curl https://cursor.com/install -fsS | bash"
 }
 
 if ($InstallDesktop) {
-    Warn "Cursor 桌面 App 自动下载/静默安装尚未实现"
+    if ($DryRun) { Info "DryRun: 跳过 Cursor 桌面 App 安装" }
+    else { Warn "Cursor 桌面 App 自动下载/静默安装尚未实现" }
     Info "当前请使用官方下载页: https://cursor.com/download"
 }
 
-$cursorAgent = Get-Command cursor-agent -ErrorAction SilentlyContinue
-if ($cursorAgent) { Ok "cursor-agent 可用: $($cursorAgent.Source)" }
-else { Warn "未检测到 cursor-agent；若刚安装，请打开新终端后重试。" }
+if ($DryRun) {
+    Ok "Cursor Windows dry-run 通过"
+} else {
+    $cursorAgent = Get-Command cursor-agent -ErrorAction SilentlyContinue
+    if ($cursorAgent) { Ok "cursor-agent 可用: $($cursorAgent.Source)" }
+    else { Warn "未检测到 cursor-agent；若刚安装，请打开新终端后重试。" }
+}
 
 Ok "Cursor Windows 安装流程完成"
+
 

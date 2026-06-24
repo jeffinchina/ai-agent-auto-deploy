@@ -60,6 +60,7 @@ Do not make the unified entry the source of truth. It should call the same teste
 ## Verification Rules
 
 - Never hardcode real API keys in tests.
+- Every installer must have a dry-run path that avoids downloads, installation, config writes, and model calls.
 - VM tests should start from a named clean snapshot.
 - A package is not releasable until parser checks, manifest hashes, install smoke test, provider smoke test, and fresh-terminal launch all pass.
 - Logs must redact `sk-...` tokens.

@@ -39,7 +39,24 @@ They are intentionally conservative. They verify platform, call official upstrea
 Do not publish any new agent/OS package until it has:
 
 - static parser checks
+- dry-run checks
 - no-secret scan
 - clean VM or hosted runner smoke test
 - real first-run verification
 - documented rollback/uninstall behavior
+
+## Dry-Run
+
+Windows installers support:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\installers\windows\codex\install.ps1 -DryRun
+```
+
+macOS installers support:
+
+```bash
+DRY_RUN=1 bash installers/macos/codex/install.sh
+```
+
+Dry-run mode must not download remote installers, install packages, write agent configuration, or call model APIs.

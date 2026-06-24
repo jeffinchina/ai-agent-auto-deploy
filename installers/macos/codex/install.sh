@@ -3,6 +3,7 @@ set -euo pipefail
 
 VERSION="0.1.0"
 RELEASE="${CODEX_RELEASE:-latest}"
+DRY_RUN="${DRY_RUN:-0}"
 LOGDIR="$(cd "$(dirname "$0")" && pwd)/logs"
 mkdir -p "$LOGDIR"
 LOGFILE="$LOGDIR/codex-macos-$(date +%Y%m%d-%H%M%S).log"
@@ -49,6 +50,10 @@ verify_codex() {
 }
 
 preflight
+if [ "$DRY_RUN" = "1" ]; then
+  ok "Codex macOS dry-run passed"
+  exit 0
+fi
 install_codex
 verify_codex
 ok "Codex macOS install flow complete"

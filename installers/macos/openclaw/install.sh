@@ -4,6 +4,7 @@ set -euo pipefail
 VERSION="0.1.0"
 TAG="${OPENCLAW_TAG:-latest}"
 RUN_ONBOARDING="${RUN_ONBOARDING:-0}"
+DRY_RUN="${DRY_RUN:-0}"
 LOGDIR="$(cd "$(dirname "$0")" && pwd)/logs"
 mkdir -p "$LOGDIR"
 LOGFILE="$LOGDIR/openclaw-macos-$(date +%Y%m%d-%H%M%S).log"
@@ -16,6 +17,11 @@ fail() { printf '\033[31m[ERR]\033[0m %s\n' "$*"; log "[ERR] $*"; printf '[INFO]
 
 [ "$(uname -s)" = "Darwin" ] || fail "This installer only supports macOS."
 command -v curl >/dev/null 2>&1 || fail "curl is required."
+
+if [ "$DRY_RUN" = "1" ]; then
+  ok "OpenClaw macOS dry-run passed"
+  exit 0
+fi
 
 if command -v openclaw >/dev/null 2>&1; then
   ok "OpenClaw already exists: $(command -v openclaw)"

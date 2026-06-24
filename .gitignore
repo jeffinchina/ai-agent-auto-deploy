@@ -1,5 +1,6 @@
 # Runtime logs and local test sandboxes
 logs/
+**/logs/
 test-sandbox/
 *.log
 

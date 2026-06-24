@@ -1,7 +1,8 @@
 ﻿#Requires -Version 5.1
 param(
     [string]$Tag = "latest",
-    [switch]$RunOnboarding
+    [switch]$RunOnboarding,
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,6 +25,10 @@ function Preflight {
 }
 
 function Install-OpenClaw {
+    if ($DryRun) {
+        Info "DryRun: 跳过 OpenClaw 官方安装脚本下载与执行"
+        return
+    }
     if (Get-Command openclaw -ErrorAction SilentlyContinue) {
         Ok "OpenClaw 已存在"
         return
@@ -41,6 +46,11 @@ function Install-OpenClaw {
 }
 
 function Verify {
+    if ($DryRun) {
+        Info "DryRun: 跳过 openclaw --version"
+        Ok "OpenClaw Windows dry-run 通过"
+        return
+    }
     $cmd = Get-Command openclaw -ErrorAction SilentlyContinue
     if (-not $cmd) { Fail "未找到 openclaw 命令" "请重新打开终端或检查安装日志。" }
     $v = & $cmd.Source --version 2>&1
@@ -58,4 +68,5 @@ try {
 } catch {
     Fail "未预期错误: $($_.Exception.Message)" "请查看日志并重新运行。"
 }
+
 

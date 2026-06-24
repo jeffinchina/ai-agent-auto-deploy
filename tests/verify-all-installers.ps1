@@ -20,6 +20,15 @@ foreach ($file in $psFiles) {
 }
 Pass "PowerShell installers parse"
 
+foreach ($file in $psFiles) {
+    $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $file.FullName -DryRun 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        $tail = ($output | Select-Object -Last 20) -join "`n"
+        Fail "PowerShell dry-run failed: $($file.FullName)`n$tail"
+    }
+}
+Pass "PowerShell installer dry-runs passed"
+
 $bash = Get-Command bash -ErrorAction SilentlyContinue
 if (-not $bash) {
     $candidates = @(
@@ -59,5 +68,4 @@ foreach ($relative in $scanRoots) {
 Pass "no obvious API keys in installer text"
 
 Write-Host "All installer checks passed." -ForegroundColor Cyan
-
 

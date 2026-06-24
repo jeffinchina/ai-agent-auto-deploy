@@ -5,6 +5,7 @@ VERSION="0.1.0"
 DEEPSEEK_URL="https://api.deepseek.com/anthropic"
 MODEL="deepseek-v4-pro"
 MODEL_FAST="deepseek-v4-flash"
+DRY_RUN="${DRY_RUN:-0}"
 LOGDIR="$(cd "$(dirname "$0")" && pwd)/logs"
 mkdir -p "$LOGDIR"
 LOGFILE="$LOGDIR/claude-code-macos-$(date +%Y%m%d-%H%M%S).log"
@@ -142,6 +143,10 @@ verify_claude() {
 }
 
 preflight
+if [ "$DRY_RUN" = "1" ]; then
+  ok "Claude Code macOS dry-run passed"
+  exit 0
+fi
 ensure_node
 install_claude
 read_key
