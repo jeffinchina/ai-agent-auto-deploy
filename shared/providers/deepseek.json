@@ -1,0 +1,21 @@
+{
+  "id": "deepseek",
+  "displayName": "DeepSeek",
+  "apiStyles": {
+    "anthropicCompatible": {
+      "baseUrl": "https://api.deepseek.com/anthropic",
+      "authEnv": "ANTHROPIC_AUTH_TOKEN",
+      "defaultModel": "deepseek-v4-pro",
+      "fastModel": "deepseek-v4-flash"
+    },
+    "openaiCompatible": {
+      "baseUrl": "https://api.deepseek.com",
+      "authHeader": "Authorization",
+      "defaultModel": "deepseek-v4-pro"
+    }
+  },
+  "notes": [
+    "Claude Code uses the Anthropic-compatible endpoint.",
+    "Installer API key checks may use the OpenAI-compatible chat completions endpoint, but release validation must also verify the actual agent path."
+  ]
+}
