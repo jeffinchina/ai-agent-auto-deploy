@@ -46,3 +46,13 @@ This note records the current upstream evidence for DeepSeek/provider integratio
 1. OpenClaw DeepSeek configuration is the most concrete next automation target.
 2. Codex DeepSeek configuration needs a small proof-of-compatibility test before writing installer behavior.
 3. Cursor DeepSeek configuration should remain manual/GUI until a stable supported automation path is confirmed.
+
+## Codex LiteLLM Bridge Status
+
+The Windows Codex wrapper can now prepare local LiteLLM bridge files:
+
+- `%USERPROFILE%\.codex\config.toml`
+- `%LOCALAPPDATA%\CodexDeepSeekLiteLLM\litellm-config.yaml`
+- `%LOCALAPPDATA%\CodexDeepSeekLiteLLM\start-litellm-deepseek.ps1`
+
+This is not yet a release pass. The remaining proof is a clean VM run where LiteLLM starts with a runtime `DEEPSEEK_API_KEY` and a minimal `codex exec` prompt returns the expected result through the bridge.

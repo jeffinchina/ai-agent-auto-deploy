@@ -60,6 +60,14 @@ codex --version
 codex doctor
 ```
 
+Codex DeepSeek bridge preparation:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -VerifyOnly -PrepareDeepSeekLiteLLM
+```
+
+The Codex DeepSeek release gate requires a Responses-compatible bridge such as LiteLLM. Do not mark Codex DeepSeek conversation complete until a clean VM run starts the bridge and `codex exec` returns the expected minimal response through DeepSeek.
+
 OpenClaw:
 
 ```powershell
@@ -92,7 +100,7 @@ After the basic install succeeds, the package is still not release-level until t
 
 | Agent | Provider gate | Conversation gate |
 | --- | --- | --- |
-| Codex | Configure DeepSeek through Codex's supported custom provider model. | Run one minimal non-interactive prompt and save sanitized output. |
+| Codex | Run `install.ps1 -VerifyOnly -PrepareDeepSeekLiteLLM`, then start LiteLLM proxy with runtime `DEEPSEEK_API_KEY`. | Run one minimal `codex exec` prompt through the LiteLLM Responses bridge and save sanitized output. |
 | OpenClaw | Run `install.ps1 -VerifyOnly -ConfigureDeepSeek` with a runtime `DEEPSEEK_API_KEY`. | Run `install.ps1 -VerifyOnly -ConfigureDeepSeek -RunDeepSeekSmoke` and save sanitized output. |
 | Cursor | Configure DeepSeek through Cursor desktop settings unless a supported CLI path is confirmed. | Send one minimal GUI prompt and save sanitized screenshot/output. |
 

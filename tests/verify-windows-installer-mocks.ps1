@@ -87,6 +87,29 @@ exit /b 0
     $codex = Invoke-Installer (Join-Path $Root "installers\windows\codex\install.ps1") @("-VerifyOnly", "-SkipLoginHint") $mockBin
     if ($codex.ExitCode -ne 0) { Fail "Codex VerifyOnly failed with mock command:`n$($codex.Output -join "`n")" }
 
+    $oldLocalAppData = $env:LOCALAPPDATA
+    $oldUserProfile = $env:USERPROFILE
+    try {
+        $env:LOCALAPPDATA = Join-Path $temp "localappdata"
+        $env:USERPROFILE = Join-Path $temp "userprofile"
+        New-Item -ItemType Directory -Path $env:LOCALAPPDATA,$env:USERPROFILE -Force | Out-Null
+        $codexBridge = Invoke-Installer (Join-Path $Root "installers\windows\codex\install.ps1") @("-VerifyOnly", "-SkipLoginHint", "-PrepareDeepSeekLiteLLM") $mockBin
+        if ($codexBridge.ExitCode -ne 0) { Fail "Codex LiteLLM bridge config failed:`n$($codexBridge.Output -join "`n")" }
+        $codexToml = Join-Path $env:USERPROFILE ".codex\config.toml"
+        $liteLlmYaml = Join-Path $env:LOCALAPPDATA "CodexDeepSeekLiteLLM\litellm-config.yaml"
+        if (-not (Test-Path $codexToml)) { Fail "Codex LiteLLM bridge did not write config.toml" }
+        if (-not (Test-Path $liteLlmYaml)) { Fail "Codex LiteLLM bridge did not write litellm-config.yaml" }
+        $codexText = Get-Content -LiteralPath $codexToml -Raw -Encoding UTF8
+        $liteText = Get-Content -LiteralPath $liteLlmYaml -Raw -Encoding UTF8
+        if ($codexText -notmatch 'wire_api = "responses"') { Fail "Codex config missing responses wire_api" }
+        if ($codexText -notmatch 'env_key = "CODEX_LITELLM_API_KEY"') { Fail "Codex config missing proxy env key" }
+        if ($liteText -notmatch 'api_key: os.environ/DEEPSEEK_API_KEY') { Fail "LiteLLM config should reference DEEPSEEK_API_KEY env var" }
+        if ($codexText -match 'sk-[A-Za-z0-9_\-]{12,}' -or $liteText -match 'sk-[A-Za-z0-9_\-]{12,}') { Fail "Codex LiteLLM bridge wrote a real-looking API key" }
+    } finally {
+        $env:LOCALAPPDATA = $oldLocalAppData
+        $env:USERPROFILE = $oldUserProfile
+    }
+
     $openclaw = Invoke-Installer (Join-Path $Root "installers\windows\openclaw\install.ps1") @("-VerifyOnly") $mockBin
     if ($openclaw.ExitCode -ne 0) { Fail "OpenClaw VerifyOnly failed with mock command:`n$($openclaw.Output -join "`n")" }
 

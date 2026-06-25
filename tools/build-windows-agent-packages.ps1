@@ -19,7 +19,8 @@ $agents = @(
         Notes = @(
             "Online installer wrapper for the official OpenAI Codex installer.",
             "Run install.ps1 -DryRun first on a clean Windows VM.",
-            "Run install.ps1 after dry-run succeeds, then open a new terminal and run codex --version."
+            "Run install.ps1 after dry-run succeeds, then open a new terminal and run codex --version.",
+            "DeepSeek validation uses a LiteLLM Responses bridge because Codex custom providers expect Responses API."
         )
     },
     @{
@@ -73,7 +74,28 @@ function New-PackageReadme($agent, [string]$Path, [string]$Version) {
     $dryRunArgs = if ($agent.DryRunArgs) { " $($agent.DryRunArgs)" } else { "" }
     $installArgs = if ($agent.InstallArgs) { " $($agent.InstallArgs)" } else { "" }
     $extra = ""
-    if ($agent.Id -eq "openclaw") {
+    if ($agent.Id -eq "codex") {
+        $extra = @"
+
+## DeepSeek LiteLLM Bridge
+
+Codex custom providers currently expect the OpenAI Responses API. DeepSeek exposes OpenAI Chat Completions and Anthropic-compatible APIs, so release validation needs a bridge such as LiteLLM.
+
+Prepare local bridge config:
+
+~~~powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -PrepareDeepSeekLiteLLM
+~~~
+
+If Python 3.10+ is already installed, also install LiteLLM proxy:
+
+~~~powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -PrepareDeepSeekLiteLLM -InstallLiteLLMProxy
+~~~
+
+The generated bridge files reference DEEPSEEK_API_KEY by environment variable and do not store the real key.
+"@
+    } elseif ($agent.Id -eq "openclaw") {
         $extra = @"
 
 ## DeepSeek Release Gate

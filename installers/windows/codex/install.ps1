@@ -1,7 +1,12 @@
 ﻿#Requires -Version 5.1
 param(
     [string]$Release = "latest",
+    [string]$DeepSeekModel = "deepseek-v4-pro",
+    [string]$LiteLLMBackendModel = "deepseek/deepseek-chat",
+    [int]$LiteLLMPort = 4000,
     [switch]$InstallDesktopApp,
+    [switch]$PrepareDeepSeekLiteLLM,
+    [switch]$InstallLiteLLMProxy,
     [switch]$SkipLoginHint,
     [switch]$VerifyOnly,
     [switch]$DryRun
@@ -69,6 +74,47 @@ function Invoke-Captured($file, [string[]]$arguments, [int]$timeoutSec = 120) {
     if(-not $done){ try { $p.Kill() } catch {}; return @{ ExitCode = 124; StdOut = ""; StdErr = "timeout" } }
     $p.WaitForExit()
     return @{ ExitCode = $p.ExitCode; StdOut = Sanitize $outTask.Result; StdErr = Sanitize $errTask.Result }
+}
+
+function Remove-TomlSection([string[]]$Lines, [string]$SectionName) {
+    $result = New-Object System.Collections.Generic.List[string]
+    $sectionHeader = "[$SectionName]"
+    $skip = $false
+    foreach ($line in $Lines) {
+        $trimmed = $line.Trim()
+        if ($trimmed -ieq $sectionHeader) {
+            $skip = $true
+            continue
+        }
+        if ($skip -and $trimmed.StartsWith("[") -and $trimmed.EndsWith("]")) {
+            $skip = $false
+        }
+        if (-not $skip) { $result.Add($line) }
+    }
+    return $result.ToArray()
+}
+
+function Set-CodexTopLevelConfig([string[]]$Lines, [string]$Model, [string]$Provider) {
+    $result = New-Object System.Collections.Generic.List[string]
+    $inserted = $false
+    foreach ($line in $Lines) {
+        $trimmed = $line.Trim()
+        $isTopLevelModel = (-not $inserted) -and ($trimmed -match '^(model|model_provider)\s*=')
+        if ($isTopLevelModel) { continue }
+        if (-not $inserted -and $trimmed.StartsWith("[") -and $trimmed.EndsWith("]")) {
+            $result.Add(('model = "{0}"' -f $Model))
+            $result.Add(('model_provider = "{0}"' -f $Provider))
+            $result.Add("")
+            $inserted = $true
+        }
+        $result.Add($line)
+    }
+    if (-not $inserted) {
+        $result.Insert(0, "")
+        $result.Insert(0, ('model_provider = "{0}"' -f $Provider))
+        $result.Insert(0, ('model = "{0}"' -f $Model))
+    }
+    return $result.ToArray()
 }
 
 function Preflight {
@@ -155,11 +201,90 @@ function Verify {
     }
 }
 
+function Write-CodexLiteLLMBridge {
+    if (-not $PrepareDeepSeekLiteLLM -and -not $InstallLiteLLMProxy) {
+        return
+    }
+    if ($DryRun) {
+        Info "DryRun: 跳过 Codex LiteLLM DeepSeek bridge 配置"
+        return
+    }
+
+    $bridgeDir = Join-Path $env:LOCALAPPDATA "CodexDeepSeekLiteLLM"
+    New-Item -ItemType Directory -Path $bridgeDir -Force | Out-Null
+
+    $liteLlmConfig = Join-Path $bridgeDir "litellm-config.yaml"
+    $yaml = @"
+model_list:
+  - model_name: $DeepSeekModel
+    litellm_params:
+      model: $LiteLLMBackendModel
+      api_key: os.environ/DEEPSEEK_API_KEY
+"@
+    Set-Content -LiteralPath $liteLlmConfig -Value $yaml -Encoding UTF8
+
+    $startScript = Join-Path $bridgeDir "start-litellm-deepseek.ps1"
+    $startContent = @"
+`$ErrorActionPreference = "Stop"
+if (-not `$env:DEEPSEEK_API_KEY -or `$env:DEEPSEEK_API_KEY -notlike "sk-*") {
+    throw "Set DEEPSEEK_API_KEY in this terminal before starting LiteLLM."
+}
+if (-not `$env:CODEX_LITELLM_API_KEY) {
+    `$env:CODEX_LITELLM_API_KEY = "sk-local-codex"
+}
+litellm --config "$liteLlmConfig" --host 127.0.0.1 --port $LiteLLMPort
+"@
+    Set-Content -LiteralPath $startScript -Value $startContent -Encoding UTF8
+
+    $codexDir = Join-Path $env:USERPROFILE ".codex"
+    $codexConfig = Join-Path $codexDir "config.toml"
+    New-Item -ItemType Directory -Path $codexDir -Force | Out-Null
+    $lines = @()
+    if (Test-Path $codexConfig) {
+        $backup = "$codexConfig.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+        Copy-Item -LiteralPath $codexConfig -Destination $backup -Force
+        Info "已备份 Codex 配置: $backup"
+        $lines = Get-Content -LiteralPath $codexConfig -Encoding UTF8
+    }
+    $providerName = "litellm-deepseek"
+    $lines = Remove-TomlSection $lines "model_providers.$providerName"
+    $lines = Set-CodexTopLevelConfig $lines $DeepSeekModel $providerName
+    $providerBlock = @(
+        "",
+        "[model_providers.$providerName]",
+        'name = "LiteLLM DeepSeek bridge"',
+        ('base_url = "http://127.0.0.1:{0}/v1"' -f $LiteLLMPort),
+        'env_key = "CODEX_LITELLM_API_KEY"',
+        'wire_api = "responses"'
+    )
+    Set-Content -LiteralPath $codexConfig -Value ($lines + $providerBlock) -Encoding UTF8
+
+    [Environment]::SetEnvironmentVariable("CODEX_LITELLM_API_KEY", "sk-local-codex", "User")
+    $env:CODEX_LITELLM_API_KEY = "sk-local-codex"
+    Ok "Codex LiteLLM DeepSeek bridge 配置已写入"
+    Info "LiteLLM 配置: $liteLlmConfig"
+    Info "启动脚本: $startScript"
+    Info "使用前请在单独 PowerShell 中设置 DEEPSEEK_API_KEY 后运行启动脚本。"
+
+    if ($InstallLiteLLMProxy) {
+        $python = Get-Command python -ErrorAction SilentlyContinue
+        if (-not $python) { Fail "未找到 Python" "Codex + DeepSeek LiteLLM bridge 需要 Python；请先安装 Python 3.10+ 或后续使用带 Python 的包。" }
+        Info "安装 LiteLLM proxy..."
+        $pip = Invoke-Captured $python.Source @("-m", "pip", "install", "--user", "litellm[proxy]") 900
+        Log $pip.StdOut
+        Log $pip.StdErr
+        if ($pip.ExitCode -ne 0) { Fail "LiteLLM proxy 安装失败" "请检查 Python/pip 和网络。" }
+        Refresh-ProcessPath
+        Ok "LiteLLM proxy 安装完成"
+    }
+}
+
 try {
     Preflight
     Install-CodexCli
     Install-CodexDesktop
     Verify
+    Write-CodexLiteLLMBridge
     Ok "Codex Windows 安装流程完成"
 } catch {
     Fail "未预期错误: $($_.Exception.Message)" "请查看日志并重新运行。"
