@@ -24,6 +24,31 @@ function Info($m) { Say Gray "[INFO] $m" }
 function Warn($m) { Say Yellow "[WARN] $m" }
 function Fail($m,$hint) { Say Red "[ERR] $m"; if($hint){ Info "建议: $hint" }; Info "日志: $LOGFILE"; exit 1 }
 
+function Refresh-ProcessPath {
+    $parts = New-Object System.Collections.Generic.List[string]
+    foreach ($scope in @("Machine", "User")) {
+        $value = [Environment]::GetEnvironmentVariable("Path", $scope)
+        if ($value) {
+            foreach ($part in ($value -split ';')) {
+                if ($part -and -not $parts.Contains($part)) { $parts.Add($part) }
+            }
+        }
+    }
+    foreach ($part in ($env:Path -split ';')) {
+        if ($part -and -not $parts.Contains($part)) { $parts.Add($part) }
+    }
+    $common = @(
+        "$env:LOCALAPPDATA\Programs\codex\bin",
+        "$env:LOCALAPPDATA\Codex\bin",
+        "$env:USERPROFILE\.codex\bin",
+        "$env:USERPROFILE\.local\bin"
+    )
+    foreach ($part in $common) {
+        if ((Test-Path $part) -and -not $parts.Contains($part)) { $parts.Add($part) }
+    }
+    $env:Path = ($parts -join ';')
+}
+
 function Invoke-Captured($file, [string[]]$arguments, [int]$timeoutSec = 120) {
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $file
@@ -109,6 +134,7 @@ function Verify {
         Ok "Codex Windows dry-run 通过"
         return
     }
+    Refresh-ProcessPath
     $cmd = Get-Command codex -ErrorAction SilentlyContinue
     if (-not $cmd) { Fail "未找到 codex 命令" "请重新打开终端，或检查安装脚本输出。" }
     $ver = Invoke-Captured $cmd.Source @("--version") 60

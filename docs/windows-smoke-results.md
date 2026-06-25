@@ -8,7 +8,7 @@ These checks are stronger than host static/dry-run checks, but they are still ep
 
 | Agent | Run | Result | Notes |
 | --- | --- | --- | --- |
-| Codex | Not run | Pending | Manual Windows runner smoke entry added. |
+| Codex | `28138248652` | Fail | Official installer completed, but current PowerShell process could not find `codex`; added process PATH refresh before verification. |
 | OpenClaw | Not run | Pending | Manual Windows runner smoke entry added. |
 | Cursor | Not run | Pending | Manual Windows runner smoke entry added; requires Git Bash on runner. |
 
