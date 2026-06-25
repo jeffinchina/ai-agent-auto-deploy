@@ -33,6 +33,24 @@ Copy or use the packages from:
 \\VBOXSVR\CCDeployPackage
 ```
 
+If VirtualBox guest credentials are not available, run the guest-side acceptance runner from inside the VM:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File \\VBOXSVR\CCDeployPackage\Run-Windows-Agent-Acceptance.ps1 -RunProviderGate -InstallLiteLLMProxy
+```
+
+For release-level evidence, restore `clean-base` before each package and double-click one per-agent runner:
+
+```text
+\\VBOXSVR\CCDeployPackage\Run-Windows-Agent-Acceptance-codex.cmd
+\\VBOXSVR\CCDeployPackage\Run-Windows-Agent-Acceptance-openclaw.cmd
+\\VBOXSVR\CCDeployPackage\Run-Windows-Agent-Acceptance-cursor.cmd
+```
+
+`Run-Windows-Agent-Acceptance.cmd` runs all three in one VM session for quick diagnostics, but that is not isolated release evidence because earlier installs can change PATH/dependencies for later checks.
+
+The runner prompts once for `DEEPSEEK_API_KEY` when provider gates are requested, keeps it in the current PowerShell process only, sanitizes transcripts, and writes evidence under `\\VBOXSVR\CCDeployPackage\vm-results\guest-<timestamp>`.
+
 For each package:
 
 1. Copy the package folder to the VM desktop.
@@ -110,7 +128,7 @@ After the basic install succeeds, the package is still not release-level until t
 | --- | --- | --- |
 | Codex | Run `install.ps1 -VerifyOnly -PrepareDeepSeekLiteLLM`, then start LiteLLM proxy with runtime `DEEPSEEK_API_KEY`. | Run one minimal `codex exec` prompt through the LiteLLM Responses bridge and save sanitized output. |
 | OpenClaw | Run `install.ps1 -VerifyOnly -ConfigureDeepSeek` with a runtime `DEEPSEEK_API_KEY`. | Run `install.ps1 -VerifyOnly -ConfigureDeepSeek -RunDeepSeekSmoke` and save sanitized output. |
-| Cursor | Configure DeepSeek through Cursor desktop settings unless a supported CLI path is confirmed. | Send one minimal GUI prompt and save sanitized screenshot/output. |
+| Cursor | Configure DeepSeek through Cursor desktop settings unless a supported CLI path is confirmed. | Send one minimal GUI prompt and save sanitized screenshot/output. The current VM runner records this as a manual GUI gate, not an automated CLI pass. |
 
 Do not paste or save API keys. Capture only sanitized logs and the final success/failure evidence.
 

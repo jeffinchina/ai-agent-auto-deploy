@@ -48,6 +48,15 @@ function Refresh-ProcessPath {
         "$env:USERPROFILE\.codex\bin",
         "$env:USERPROFILE\.local\bin"
     )
+    if ($env:APPDATA) {
+        $pythonRoot = Join-Path $env:APPDATA "Python"
+        if (Test-Path $pythonRoot) {
+            Get-ChildItem -LiteralPath $pythonRoot -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+                $scripts = Join-Path $_.FullName "Scripts"
+                if (Test-Path $scripts) { $common += $scripts }
+            }
+        }
+    }
     foreach ($part in $common) {
         if ((Test-Path $part) -and -not $parts.Contains($part)) { $parts.Add($part) }
     }
@@ -74,6 +83,71 @@ function Invoke-Captured($file, [string[]]$arguments, [int]$timeoutSec = 120) {
     if(-not $done){ try { $p.Kill() } catch {}; return @{ ExitCode = 124; StdOut = ""; StdErr = "timeout" } }
     $p.WaitForExit()
     return @{ ExitCode = $p.ExitCode; StdOut = Sanitize $outTask.Result; StdErr = Sanitize $errTask.Result }
+}
+
+function Get-PythonInvoker {
+    Refresh-ProcessPath
+    $python = Get-Command python -ErrorAction SilentlyContinue
+    if ($python) {
+        $version = Invoke-Captured $python.Source @("--version") 30
+        if ($version.ExitCode -eq 0 -and (Test-PythonVersionText $version.StdOut)) {
+            return @{ File = $python.Source; PrefixArgs = @() }
+        }
+    }
+
+    $py = Get-Command py -ErrorAction SilentlyContinue
+    if ($py) {
+        $version = Invoke-Captured $py.Source @("-3", "--version") 30
+        if ($version.ExitCode -eq 0 -and (Test-PythonVersionText $version.StdOut)) {
+            return @{ File = $py.Source; PrefixArgs = @("-3") }
+        }
+    }
+
+    return $null
+}
+
+function Test-PythonVersionText([string]$Text) {
+    if ($Text -match 'Python\s+(\d+)\.(\d+)\.') {
+        $major = [int]$Matches[1]
+        $minor = [int]$Matches[2]
+        return ($major -gt 3 -or ($major -eq 3 -and $minor -ge 10))
+    }
+    return $false
+}
+
+function Ensure-PythonForLiteLLM {
+    $invoker = Get-PythonInvoker
+    if ($invoker) { return $invoker }
+
+    $winget = Get-Command winget -ErrorAction SilentlyContinue
+    if (-not $winget) {
+        Fail "未找到 Python" "Codex + DeepSeek LiteLLM bridge 需要 Python 3.10+；请先安装 Python，或安装 Windows Package Manager 后重试。"
+    }
+
+    Info "未检测到 Python 3，正在通过 winget 安装 Python 3.12..."
+    $install = Invoke-Captured $winget.Source @(
+        "install",
+        "--id", "Python.Python.3.12",
+        "--exact",
+        "--source", "winget",
+        "--scope", "user",
+        "--silent",
+        "--accept-package-agreements",
+        "--accept-source-agreements"
+    ) 900
+    Log $install.StdOut
+    Log $install.StdErr
+    if ($install.ExitCode -ne 0) {
+        Fail "Python 3.12 安装失败" "请检查 winget 输出，或手动安装 Python 3.10+ 后重试 -InstallLiteLLMProxy。"
+    }
+
+    Refresh-ProcessPath
+    $invoker = Get-PythonInvoker
+    if (-not $invoker) {
+        Fail "Python 安装后仍不可用" "请打开新 PowerShell 后重试，或检查 Python 是否加入 PATH。"
+    }
+    Ok "Python 可用"
+    return $invoker
 }
 
 function Remove-TomlSection([string[]]$Lines, [string]$SectionName) {
@@ -224,7 +298,7 @@ model_list:
     Set-Content -LiteralPath $liteLlmConfig -Value $yaml -Encoding UTF8
 
     $startScript = Join-Path $bridgeDir "start-litellm-deepseek.ps1"
-    $startContent = @"
+$startContent = @"
 `$ErrorActionPreference = "Stop"
 if (-not `$env:DEEPSEEK_API_KEY -or `$env:DEEPSEEK_API_KEY -notlike "sk-*") {
     throw "Set DEEPSEEK_API_KEY in this terminal before starting LiteLLM."
@@ -232,7 +306,22 @@ if (-not `$env:DEEPSEEK_API_KEY -or `$env:DEEPSEEK_API_KEY -notlike "sk-*") {
 if (-not `$env:CODEX_LITELLM_API_KEY) {
     `$env:CODEX_LITELLM_API_KEY = "sk-local-codex"
 }
-litellm --config "$liteLlmConfig" --host 127.0.0.1 --port $LiteLLMPort
+`$litellm = Get-Command litellm -ErrorAction SilentlyContinue
+if (`$litellm) {
+    & `$litellm.Source --config "$liteLlmConfig" --host 127.0.0.1 --port $LiteLLMPort
+    exit `$LASTEXITCODE
+}
+`$python = Get-Command python -ErrorAction SilentlyContinue
+if (`$python) {
+    & `$python.Source -m litellm --config "$liteLlmConfig" --host 127.0.0.1 --port $LiteLLMPort
+    exit `$LASTEXITCODE
+}
+`$py = Get-Command py -ErrorAction SilentlyContinue
+if (`$py) {
+    & `$py.Source -3 -m litellm --config "$liteLlmConfig" --host 127.0.0.1 --port $LiteLLMPort
+    exit `$LASTEXITCODE
+}
+throw "litellm command not found. Install LiteLLM proxy first."
 "@
     Set-Content -LiteralPath $startScript -Value $startContent -Encoding UTF8
 
@@ -267,10 +356,10 @@ litellm --config "$liteLlmConfig" --host 127.0.0.1 --port $LiteLLMPort
     Info "使用前请在单独 PowerShell 中设置 DEEPSEEK_API_KEY 后运行启动脚本。"
 
     if ($InstallLiteLLMProxy) {
-        $python = Get-Command python -ErrorAction SilentlyContinue
-        if (-not $python) { Fail "未找到 Python" "Codex + DeepSeek LiteLLM bridge 需要 Python；请先安装 Python 3.10+ 或后续使用带 Python 的包。" }
+        $python = Ensure-PythonForLiteLLM
         Info "安装 LiteLLM proxy..."
-        $pip = Invoke-Captured $python.Source @("-m", "pip", "install", "--user", "litellm[proxy]") 900
+        $pipArgs = @($python.PrefixArgs) + @("-m", "pip", "install", "--user", "litellm[proxy]")
+        $pip = Invoke-Captured $python.File $pipArgs 900
         Log $pip.StdOut
         Log $pip.StdErr
         if ($pip.ExitCode -ne 0) { Fail "LiteLLM proxy 安装失败" "请检查 Python/pip 和网络。" }

@@ -9,7 +9,7 @@ function Pass($message) { Write-Host "[PASS] $message" -ForegroundColor Green }
 function Fail($message) { throw "[FAIL] $message" }
 
 $psFiles = @()
-foreach ($relative in @("installers", "tools")) {
+foreach ($relative in @("installers", "tools", "shared\vm")) {
     $path = Join-Path $Root $relative
     if (Test-Path $path) {
         $psFiles += Get-ChildItem -Path $path -Recurse -Filter "*.ps1"

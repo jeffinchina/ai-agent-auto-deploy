@@ -116,6 +116,12 @@ $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $resultsDir = Join-Path $SharedDir "vm-results\$timestamp"
 New-Item -ItemType Directory -Path $resultsDir -Force | Out-Null
 
+$syncRunner = Join-Path $Root "tools\sync-windows-vm-guest-runner.ps1"
+if (Test-Path $syncRunner) {
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $syncRunner -Root $Root -SharedDir $SharedDir | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw "Failed to sync Windows VM guest runner." }
+}
+
 $planLines = New-Object System.Collections.Generic.List[string]
 $planLines.Add("# Windows VM Agent Test Run $timestamp")
 $planLines.Add("")
@@ -128,7 +134,28 @@ $planLines.Add("- Provider gate: $(if ($RunProviderGate) { 'included in manual p
 $planLines.Add("")
 $planLines.Add("## Manual fallback")
 $planLines.Add("")
-$planLines.Add("If guestcontrol credentials are not available, copy each package folder from \\VBOXSVR\CCDeployPackage to the VM desktop and run:")
+$planLines.Add("If guestcontrol credentials are not available, run the guest-side acceptance runner from inside the VM:")
+$planLines.Add("")
+$planLines.Add('```powershell')
+$guestRunnerArgs = ""
+if ($Agent -ne "all") { $guestRunnerArgs += " -Agent $Agent" }
+if ($RunProviderGate) { $guestRunnerArgs += " -RunProviderGate -InstallLiteLLMProxy" }
+$planLines.Add("powershell -NoProfile -ExecutionPolicy Bypass -File \\VBOXSVR\CCDeployPackage\Run-Windows-Agent-Acceptance.ps1$guestRunnerArgs")
+$planLines.Add('```')
+$planLines.Add("")
+$planLines.Add("For release-level evidence, restore clean-base before each package and double-click one per-agent runner:")
+$planLines.Add("")
+$planLines.Add('```text')
+foreach ($agentId in $agents) {
+    $planLines.Add("\\VBOXSVR\CCDeployPackage\Run-Windows-Agent-Acceptance-$agentId.cmd")
+}
+$planLines.Add('```')
+$planLines.Add("")
+$planLines.Add("For quick diagnostics only, double-click: \\VBOXSVR\CCDeployPackage\Run-Windows-Agent-Acceptance.cmd")
+$planLines.Add("")
+$planLines.Add("The runner writes sanitized evidence under \\VBOXSVR\CCDeployPackage\vm-results\guest-<timestamp>.")
+$planLines.Add("")
+$planLines.Add("You can also copy each package folder from \\VBOXSVR\CCDeployPackage to the VM desktop and run:")
 $planLines.Add("")
 foreach ($agentId in $agents) {
     $package = "$agentId-windows-v0.1.0"
