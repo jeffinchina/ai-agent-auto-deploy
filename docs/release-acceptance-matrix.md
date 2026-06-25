@@ -26,14 +26,14 @@ This matrix tracks the target release standard: install from a clean user enviro
 | Package | Static | Hosted smoke | Clean macOS VM / cloud Mac install | Provider smoke | Conversation smoke | Current release status |
 | --- | --- | --- | --- | --- | --- | --- |
 | Claude Code macOS v0.1.0 | Pass | Pending; needs runtime DeepSeek key | Pending | Pending | Pending | Not release-level yet. |
-| Codex macOS v0.1.0 | Pass | Pass, runs `28137469599`, `28137905077` | Pending | Pending DeepSeek/OpenAI-compatible config | Pending | Not release-level yet. |
+| Codex macOS v0.1.0 | Pass | Pass, runs `28137469599`, `28137905077` | Pending | LiteLLM bridge config implemented, pending runner/real Mac run | Implemented in package, pending runner/real Mac run | Not release-level yet. |
 | OpenClaw macOS v0.1.0 | Pass | Pass, run `28137681835` | Pending | Implemented in package, pending runner/real Mac run | Implemented in package, pending runner/real Mac run | Not release-level yet. |
 | Cursor macOS v0.1.0 | Pass | Pass, run `28137494682` | Pending | Pending provider setup | Pending | Not release-level yet. |
 
 ## Immediate Gates
 
 1. Run Codex/OpenClaw/Cursor Windows packages manually or through `VBoxManage guestcontrol` on `CCDeploy-Win11-Test` restored to `clean-base`.
-2. Run OpenClaw hosted DeepSeek smoke with a repository `DEEPSEEK_API_KEY` secret, then repeat on clean VM / real Mac.
+2. Run Codex/OpenClaw hosted DeepSeek smoke with a repository `DEEPSEEK_API_KEY` secret where implemented, then repeat on clean VM / real Mac.
 3. For macOS, use GitHub macOS runners for hosted smoke and a real Mac/cloud Mac for interactive release acceptance. A Windows-hosted macOS VM is not the release baseline.
 4. Never store API keys in the repository, artifacts, screenshots, command history, or chat logs. Use hidden input locally or a short-lived GitHub secret for runner-only tests.
 

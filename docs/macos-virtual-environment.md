@@ -33,8 +33,8 @@ For each package:
 | Package | Basic verification | Provider/conversation verification |
 | --- | --- | --- |
 | Claude Code | `claude --version` | Enter DeepSeek key when prompted; installer already runs `claude -p 'Reply with exactly OK'`. |
-| Codex | `codex --version`, `codex doctor` | Pending DeepSeek provider config implementation. |
-| OpenClaw | `openclaw --version` | Pending DeepSeek provider/onboarding implementation. |
+| Codex | `codex --version`, `codex doctor` | Use `PREPARE_DEEPSEEK_LITELLM=1 INSTALL_LITELLM_PROXY=1 bash install.sh`, then `RUN_DEEPSEEK_SMOKE=1 bash install.sh` with a runtime key. |
+| OpenClaw | `openclaw --version` | Use `CONFIGURE_DEEPSEEK=1 bash install.sh`, then `RUN_DEEPSEEK_SMOKE=1 bash install.sh` with a runtime key. |
 | Cursor | `cursor-agent --version` or `cursor` detection | Pending provider setup and minimal prompt verification. |
 
 ## Evidence To Save

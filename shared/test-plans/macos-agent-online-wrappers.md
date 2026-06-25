@@ -33,7 +33,7 @@ Required checks:
 
 The repository workflow also has a manual `workflow_dispatch` smoke entry. Select one agent with `macos_smoke_agent`. This intentionally does not run on every push because it performs real online installs on an ephemeral GitHub macOS runner. Claude Code smoke requires a repository secret named `DEEPSEEK_API_KEY`.
 
-OpenClaw can also run provider/conversation smoke on GitHub macOS runners when `deepseek_smoke=true` and the repository has a `DEEPSEEK_API_KEY` secret. Codex and Cursor DeepSeek smoke are not wired into the macOS workflow yet.
+Codex and OpenClaw can also run provider/conversation smoke on GitHub macOS runners when `deepseek_smoke=true` and the repository has a `DEEPSEEK_API_KEY` secret. Cursor DeepSeek smoke is not wired into the macOS workflow yet.
 
 ## Real Mac Release Gate
 
@@ -55,7 +55,16 @@ RUN_DEEPSEEK_SMOKE=1 bash install.sh
 unset DEEPSEEK_API_KEY
 ```
 
-Claude Code also performs a DeepSeek conversation smoke when run with a key. Codex and Cursor still need separate provider-path implementation before they can be marked release-level.
+Codex DeepSeek release gate:
+
+```bash
+export DEEPSEEK_API_KEY="sk-..."
+PREPARE_DEEPSEEK_LITELLM=1 INSTALL_LITELLM_PROXY=1 bash install.sh
+RUN_DEEPSEEK_SMOKE=1 bash install.sh
+unset DEEPSEEK_API_KEY
+```
+
+Claude Code also performs a DeepSeek conversation smoke when run with a key. Cursor still needs separate provider-path implementation before it can be marked release-level.
 
 ## Current Status
 
@@ -63,5 +72,6 @@ Claude Code also performs a DeepSeek conversation smoke when run with a key. Cod
 - Dry-run checks: automated in CI.
 - Package zip, manifest, SHA256, and extracted file checks: automated on Windows.
 - GitHub macOS hosted smoke: passed for Codex, OpenClaw, and Cursor; pending for Claude Code because the full smoke needs a runtime DeepSeek key.
+- GitHub macOS DeepSeek provider/conversation smoke: implemented for Codex and OpenClaw; pending execution with a repository secret.
 - Real macOS install smoke tests: pending.
 - Real Mac first-use tests: pending.

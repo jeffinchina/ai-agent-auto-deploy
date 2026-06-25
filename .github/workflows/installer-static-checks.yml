@@ -95,10 +95,14 @@ jobs:
               ;;
             codex)
               if [ "${DEEPSEEK_SMOKE}" = "true" ]; then
-                echo "Codex DeepSeek smoke requires a Responses-compatible bridge and is not implemented in macOS workflow yet."
-                exit 1
+                if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
+                  echo "DEEPSEEK_API_KEY repository secret is required for Codex macOS DeepSeek smoke."
+                  exit 1
+                fi
+                PREPARE_DEEPSEEK_LITELLM=1 INSTALL_LITELLM_PROXY=1 RUN_DEEPSEEK_SMOKE=1 bash installers/macos/codex/install.sh
+              else
+                bash installers/macos/codex/install.sh
               fi
-              bash installers/macos/codex/install.sh
               ;;
             openclaw)
               if [ "${DEEPSEEK_SMOKE}" = "true" ]; then

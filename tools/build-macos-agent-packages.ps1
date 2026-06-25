@@ -26,6 +26,23 @@ function Write-TextFile([string]$Path, [string]$Content) {
 
 function New-PackageReadme($agent, [string]$Path, [string]$Version) {
     $extra = ""
+    if ($agent.Id -eq "codex") {
+        $extra = @"
+
+## DeepSeek Release Gate
+
+For release validation, set a runtime DeepSeek key and use the LiteLLM bridge:
+
+~~~bash
+export DEEPSEEK_API_KEY="sk-..."
+PREPARE_DEEPSEEK_LITELLM=1 INSTALL_LITELLM_PROXY=1 bash install.sh
+RUN_DEEPSEEK_SMOKE=1 bash install.sh
+unset DEEPSEEK_API_KEY
+~~~
+
+Do not paste API keys into logs, screenshots, Git history, or chat.
+"@
+    }
     if ($agent.Id -eq "openclaw") {
         $extra = @"
 
