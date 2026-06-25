@@ -17,7 +17,11 @@ These checks are stronger than Windows-hosted static/dry-run checks, but they ar
 
 ## Current Boundary
 
-Codex, Cursor, and OpenClaw have passed real online smoke checks on GitHub's macOS runner. Claude Code macOS is still pending because the smoke test needs a DeepSeek API key and should not persist user-provided keys into repository secrets without an explicit release-testing decision.
+Codex, Cursor, and OpenClaw have passed real online smoke checks on GitHub's macOS runner. These checks verify installer behavior and command availability; they do not prove a DeepSeek conversation path.
+
+Claude Code macOS is still pending because its intended smoke is different: install Claude Code, write DeepSeek-compatible configuration, then prove a minimal Claude Code call can reach DeepSeek. That requires a runtime DeepSeek API key. Do not commit keys, echo keys, include keys in workflow inputs, or paste logs before checking them. If this smoke runs on GitHub Actions, use a repository secret such as `DEEPSEEK_API_KEY`, then remove/rotate it after release testing if desired.
+
+Codex, Cursor, and OpenClaw do not automatically use DeepSeek just because they are installed. Each has its own authentication/provider model. DeepSeek support, if desired, is a separate configuration and conversation-verification layer for each agent.
 
 These runner checks do not replace final real-Mac acceptance for Gatekeeper prompts, fresh Terminal behavior, or desktop-app first launch.
 
