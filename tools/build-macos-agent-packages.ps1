@@ -25,6 +25,24 @@ function Write-TextFile([string]$Path, [string]$Content) {
 }
 
 function New-PackageReadme($agent, [string]$Path, [string]$Version) {
+    $extra = ""
+    if ($agent.Id -eq "openclaw") {
+        $extra = @"
+
+## DeepSeek Release Gate
+
+For release validation, set a runtime DeepSeek key or use the hidden prompt:
+
+~~~bash
+export DEEPSEEK_API_KEY="sk-..."
+CONFIGURE_DEEPSEEK=1 bash install.sh
+RUN_DEEPSEEK_SMOKE=1 bash install.sh
+unset DEEPSEEK_API_KEY
+~~~
+
+Do not paste API keys into logs, screenshots, Git history, or chat.
+"@
+    }
     $content = @"
 # $($agent.Name) macOS Installer v$Version
 
@@ -44,6 +62,7 @@ bash install.sh
 After installation, close the old terminal, open a new Terminal window, and run the version or doctor command shown by the installer.
 
 See TEST-PLAN.md for the current macOS verification boundary. Windows packaging and CI dry-runs are not a substitute for a real Mac smoke test.
+$extra
 "@
     Write-TextFile $Path $content
 }

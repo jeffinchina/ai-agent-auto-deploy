@@ -44,6 +44,17 @@ Before publishing a macOS package, verify on a real Mac or cloud Mac:
 - uninstall/reset notes.
 - upgrade from previous package, once previous packages exist.
 
+OpenClaw DeepSeek release gate:
+
+```bash
+export DEEPSEEK_API_KEY="sk-..."
+CONFIGURE_DEEPSEEK=1 bash install.sh
+RUN_DEEPSEEK_SMOKE=1 bash install.sh
+unset DEEPSEEK_API_KEY
+```
+
+Claude Code also performs a DeepSeek conversation smoke when run with a key. Codex and Cursor still need separate provider-path implementation before they can be marked release-level.
+
 ## Current Status
 
 - Shell syntax checks: automated in CI.
