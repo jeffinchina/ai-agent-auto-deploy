@@ -10,5 +10,12 @@ These checks are stronger than Windows-hosted static/dry-run checks, but they ar
 | --- | --- | --- | --- |
 | Codex | `28137469599` | Pass | Official installer completed and wrapper verification passed on GitHub macOS runner. |
 | Cursor | `28137494682` | Pass | Official installer completed and `cursor-agent`/`cursor` detection passed on GitHub macOS runner. |
-| OpenClaw | `28137494636` | Fail | Wrapper used unsupported `--tag`; changed to official `--version` plus `--no-prompt`. Needs rerun after fix. |
+| OpenClaw | `28137494636` | Fail | Wrapper used unsupported `--tag`; changed to official `--version` plus `--no-prompt`. |
+| OpenClaw | `28137681835` | Pass | Fixed wrapper completed official installer and verification on GitHub macOS runner. |
 | Claude Code | Not run | Pending | Requires repository secret `DEEPSEEK_API_KEY` and should be run manually to avoid accidental key/API use. |
+
+## Current Boundary
+
+Codex, Cursor, and OpenClaw have passed real online smoke checks on GitHub's macOS runner. Claude Code macOS is still pending because the smoke test needs a DeepSeek API key and should not persist user-provided keys into repository secrets without an explicit release-testing decision.
+
+These runner checks do not replace final real-Mac acceptance for Gatekeeper prompts, fresh Terminal behavior, or desktop-app first launch.
