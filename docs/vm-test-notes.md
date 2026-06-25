@@ -50,6 +50,8 @@ These packages currently have static, dry-run, package, manifest, and SHA256 ver
 - OpenClaw Windows
 - Cursor Windows
 
+GitHub Actions can also run manual Windows runner smoke checks for these online wrappers. See `docs/windows-smoke-results.md`. This is useful evidence, but it does not replace the clean VM test because GitHub runners already include developer tooling.
+
 To generate a structured test plan and, when guest credentials are available, run guestcontrol-based checks:
 
 ```powershell

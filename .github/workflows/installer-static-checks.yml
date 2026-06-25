@@ -17,6 +17,16 @@ on:
           - codex
           - openclaw
           - cursor
+      windows_smoke_agent:
+        description: "Optional real Windows smoke target. Default keeps the workflow static/dry-run only."
+        required: true
+        default: "none"
+        type: choice
+        options:
+          - none
+          - codex
+          - openclaw
+          - cursor
 
 jobs:
   windows:
@@ -118,5 +128,68 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-smoke-${{ inputs.macos_smoke_agent }}-${{ github.run_id }}
+          path: smoke-artifacts
+          if-no-files-found: warn
+
+  windows-smoke:
+    name: Manual Windows smoke
+    if: github.event_name == 'workflow_dispatch' && inputs.windows_smoke_agent != 'none'
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run selected Windows smoke
+        shell: powershell
+        env:
+          AGENT: ${{ inputs.windows_smoke_agent }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          switch ($env:AGENT) {
+            "codex" {
+              powershell -NoProfile -ExecutionPolicy Bypass -File .\installers\windows\codex\install.ps1 -SkipLoginHint
+              break
+            }
+            "openclaw" {
+              powershell -NoProfile -ExecutionPolicy Bypass -File .\installers\windows\openclaw\install.ps1
+              break
+            }
+            "cursor" {
+              powershell -NoProfile -ExecutionPolicy Bypass -File .\installers\windows\cursor\install.ps1 -InstallCliWithBash
+              break
+            }
+            default {
+              throw "Unsupported smoke agent: $env:AGENT"
+            }
+          }
+      - name: Collect Windows smoke logs
+        if: always()
+        shell: powershell
+        env:
+          AGENT: ${{ inputs.windows_smoke_agent }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Path smoke-artifacts -Force | Out-Null
+          $summary = @(
+            "# Windows smoke summary",
+            "",
+            "- Agent: $env:AGENT",
+            "- Run: $env:GITHUB_RUN_ID",
+            "- Commit: $env:GITHUB_SHA",
+            "- Runner: $([System.Environment]::OSVersion.VersionString)",
+            "- Date UTC: $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))"
+          )
+          Set-Content -LiteralPath smoke-artifacts\SUMMARY.md -Value $summary -Encoding UTF8
+          Get-ChildItem -Path installers\windows -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\logs\\' } |
+            ForEach-Object {
+              $relative = $_.FullName.Substring((Resolve-Path "installers\windows").Path.Length + 1)
+              $dest = Join-Path smoke-artifacts $relative
+              New-Item -ItemType Directory -Path (Split-Path -Parent $dest) -Force | Out-Null
+              Copy-Item -LiteralPath $_.FullName -Destination $dest -Force
+            }
+      - name: Upload Windows smoke logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-smoke-${{ inputs.windows_smoke_agent }}-${{ github.run_id }}
           path: smoke-artifacts
           if-no-files-found: warn
