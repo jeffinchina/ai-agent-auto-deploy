@@ -9,6 +9,7 @@ These checks are stronger than Windows-hosted static/dry-run checks, but they ar
 | Agent | Run | Result | Notes |
 | --- | --- | --- | --- |
 | Codex | `28137469599` | Pass | Official installer completed and wrapper verification passed on GitHub macOS runner. |
+| Codex | `28137905077` | Pass | Artifact upload verified; downloaded artifact contains `SUMMARY.md` and installer log. |
 | Cursor | `28137494682` | Pass | Official installer completed and `cursor-agent`/`cursor` detection passed on GitHub macOS runner. |
 | OpenClaw | `28137494636` | Fail | Wrapper used unsupported `--tag`; changed to official `--version` plus `--no-prompt`. |
 | OpenClaw | `28137681835` | Pass | Fixed wrapper completed official installer and verification on GitHub macOS runner. |
