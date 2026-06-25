@@ -34,16 +34,16 @@ This package is an online macOS installer wrapper. It does not bundle the upstre
 
 Open Terminal in this folder:
 
-```bash
+~~~bash
 DRY_RUN=1 bash install.sh
 bash install.sh
-```
+~~~
 
 ## Verification
 
 After installation, close the old terminal, open a new Terminal window, and run the version or doctor command shown by the installer.
 
-See `TEST-PLAN.md` for the current macOS verification boundary. Windows packaging and CI dry-runs are not a substitute for a real Mac smoke test.
+See TEST-PLAN.md for the current macOS verification boundary. Windows packaging and CI dry-runs are not a substitute for a real Mac smoke test.
 "@
     Write-TextFile $Path $content
 }
