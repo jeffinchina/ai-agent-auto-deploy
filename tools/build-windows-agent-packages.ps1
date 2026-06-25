@@ -31,7 +31,8 @@ $agents = @(
         Notes = @(
             "Online installer wrapper for the official OpenClaw Windows installer.",
             "Run install.ps1 -DryRun first on a clean Windows VM.",
-            "Run install.ps1 after dry-run succeeds, then open a new terminal and run openclaw --version."
+            "Run install.ps1 after dry-run succeeds, then open a new terminal and run openclaw --version.",
+            "Release validation can add -ConfigureDeepSeek and -RunDeepSeekSmoke with a runtime DEEPSEEK_API_KEY."
         )
     },
     @{
@@ -71,6 +72,24 @@ function New-PackageReadme($agent, [string]$Path, [string]$Version) {
     $notes = ($agent.Notes | ForEach-Object { "- $_" }) -join "`r`n"
     $dryRunArgs = if ($agent.DryRunArgs) { " $($agent.DryRunArgs)" } else { "" }
     $installArgs = if ($agent.InstallArgs) { " $($agent.InstallArgs)" } else { "" }
+    $extra = ""
+    if ($agent.Id -eq "openclaw") {
+        $extra = @"
+
+## DeepSeek Release Gate
+
+For release validation, set a runtime DeepSeek key or use the hidden prompt:
+
+~~~powershell
+`$env:DEEPSEEK_API_KEY = "sk-..."
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -ConfigureDeepSeek
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -ConfigureDeepSeek -RunDeepSeekSmoke
+Remove-Item Env:\DEEPSEEK_API_KEY
+~~~
+
+Do not paste API keys into logs, screenshots, Git history, or chat.
+"@
+    }
     $content = @"
 # $($agent.Name) Windows Installer v$Version
 
@@ -96,6 +115,7 @@ You can also double-click run.cmd.
 After installation, close the old terminal, open a new PowerShell window, and run the version command shown by the installer.
 
 Logs are written to the local logs folder. Do not paste logs publicly if they contain account paths or provider output.
+$extra
 "@
     Write-TextFile $Path $content
 }

@@ -67,6 +67,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 openclaw --version
 ```
 
+OpenClaw DeepSeek gate:
+
+```powershell
+$env:DEEPSEEK_API_KEY = "sk-..."
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -VerifyOnly -ConfigureDeepSeek
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -VerifyOnly -ConfigureDeepSeek -RunDeepSeekSmoke
+Remove-Item Env:\DEEPSEEK_API_KEY
+```
+
 Cursor:
 
 ```powershell
@@ -84,7 +93,7 @@ After the basic install succeeds, the package is still not release-level until t
 | Agent | Provider gate | Conversation gate |
 | --- | --- | --- |
 | Codex | Configure DeepSeek through Codex's supported custom provider model. | Run one minimal non-interactive prompt and save sanitized output. |
-| OpenClaw | Configure DeepSeek through OpenClaw provider/onboarding settings. | Run one minimal prompt and save sanitized output. |
+| OpenClaw | Run `install.ps1 -VerifyOnly -ConfigureDeepSeek` with a runtime `DEEPSEEK_API_KEY`. | Run `install.ps1 -VerifyOnly -ConfigureDeepSeek -RunDeepSeekSmoke` and save sanitized output. |
 | Cursor | Configure DeepSeek through Cursor desktop settings unless a supported CLI path is confirmed. | Send one minimal GUI prompt and save sanitized screenshot/output. |
 
 Do not paste or save API keys. Capture only sanitized logs and the final success/failure evidence.

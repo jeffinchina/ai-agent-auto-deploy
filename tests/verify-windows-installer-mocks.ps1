@@ -52,6 +52,24 @@ if "%1"=="--version" (
   echo openclaw 0.0.0-test
   exit /b 0
 )
+if "%1"=="onboard" (
+  echo onboard ok
+  exit /b 0
+)
+if "%1"=="models" (
+  if "%2"=="list" (
+    echo deepseek/deepseek-v4-pro
+    exit /b 0
+  )
+  if "%2"=="set" (
+    echo model set
+    exit /b 0
+  )
+)
+if "%1"=="infer" (
+  echo OK
+  exit /b 0
+)
 echo openclaw mock
 exit /b 0
 "@ | Out-Null
@@ -71,6 +89,15 @@ exit /b 0
 
     $openclaw = Invoke-Installer (Join-Path $Root "installers\windows\openclaw\install.ps1") @("-VerifyOnly") $mockBin
     if ($openclaw.ExitCode -ne 0) { Fail "OpenClaw VerifyOnly failed with mock command:`n$($openclaw.Output -join "`n")" }
+
+    $oldDeepSeekKey = $env:DEEPSEEK_API_KEY
+    try {
+        $env:DEEPSEEK_API_KEY = "sk-test"
+        $openclawDeepSeek = Invoke-Installer (Join-Path $Root "installers\windows\openclaw\install.ps1") @("-VerifyOnly", "-ConfigureDeepSeek", "-RunDeepSeekSmoke") $mockBin
+        if ($openclawDeepSeek.ExitCode -ne 0) { Fail "OpenClaw DeepSeek mock smoke failed:`n$($openclawDeepSeek.Output -join "`n")" }
+    } finally {
+        $env:DEEPSEEK_API_KEY = $oldDeepSeekKey
+    }
 
     $cursor = Invoke-Installer (Join-Path $Root "installers\windows\cursor\install.ps1") @("-VerifyOnly") $mockBin
     if ($cursor.ExitCode -ne 0) { Fail "Cursor VerifyOnly failed with mock command:`n$($cursor.Output -join "`n")" }

@@ -18,7 +18,7 @@ This matrix tracks the target release standard: install from a clean user enviro
 | --- | --- | --- | --- | --- | --- | --- |
 | Claude Code Windows v3.2.3 | Pass | N/A | Pass by user VM report | Pass, DeepSeek direct | Pass, `claude -p` returned usable response | Closest releasable baseline; still wants structured artifact capture. |
 | Codex Windows v0.1.0 | Pass | Pass, run `28138374078` | Pending | Pending DeepSeek/OpenAI-compatible config | Pending | Not release-level yet. |
-| OpenClaw Windows v0.1.0 | Pass | Pass, run `28143299443` | Pending | Pending DeepSeek provider/onboarding config | Pending | Not release-level yet. |
+| OpenClaw Windows v0.1.0 | Pass | Pass, run `28143299443` | Pending | Implemented in package, pending clean VM run | Implemented in package, pending clean VM run | Not release-level yet. |
 | Cursor Windows v0.1.0 | Pass | Pass, run `28143299476` | Pending | Pending GUI/provider setup | Pending GUI prompt | Not release-level yet. |
 
 ## macOS
