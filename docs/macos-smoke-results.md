@@ -19,3 +19,12 @@ These checks are stronger than Windows-hosted static/dry-run checks, but they ar
 Codex, Cursor, and OpenClaw have passed real online smoke checks on GitHub's macOS runner. Claude Code macOS is still pending because the smoke test needs a DeepSeek API key and should not persist user-provided keys into repository secrets without an explicit release-testing decision.
 
 These runner checks do not replace final real-Mac acceptance for Gatekeeper prompts, fresh Terminal behavior, or desktop-app first launch.
+
+## Artifacts
+
+New manual macOS smoke runs upload an artifact named `macos-smoke-<agent>-<run_id>`. It contains:
+
+- `SUMMARY.md` with agent, commit, runner, and timestamp.
+- installer log files copied from `installers/macos/*/logs`.
+
+Do not paste artifacts publicly without checking them first. Installer logs are intended to be sanitized by the wrapper scripts, but they may still reveal runner paths, package versions, or provider output.

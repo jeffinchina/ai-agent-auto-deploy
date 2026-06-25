@@ -91,3 +91,32 @@ jobs:
               exit 1
               ;;
           esac
+      - name: Collect macOS smoke logs
+        if: always()
+        shell: bash
+        env:
+          AGENT: ${{ inputs.macos_smoke_agent }}
+        run: |
+          set -euo pipefail
+          mkdir -p smoke-artifacts
+          {
+            echo "# macOS smoke summary"
+            echo
+            echo "- Agent: ${AGENT}"
+            echo "- Run: ${GITHUB_RUN_ID}"
+            echo "- Commit: ${GITHUB_SHA}"
+            echo "- Runner: $(uname -a)"
+            echo "- Date UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > smoke-artifacts/SUMMARY.md
+          find installers/macos -path '*/logs/*' -type f -print0 | while IFS= read -r -d '' file; do
+            dest="smoke-artifacts/${file#installers/macos/}"
+            mkdir -p "$(dirname "$dest")"
+            cp "$file" "$dest"
+          done
+      - name: Upload macOS smoke logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-smoke-${{ inputs.macos_smoke_agent }}-${{ github.run_id }}
+          path: smoke-artifacts
+          if-no-files-found: warn
