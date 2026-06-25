@@ -33,7 +33,7 @@ This matrix tracks the target release standard: install from a clean user enviro
 ## Immediate Gates
 
 1. Run Codex/OpenClaw/Cursor Windows packages manually or through `VBoxManage guestcontrol` on `CCDeploy-Win11-Test` restored to `clean-base`.
-2. Add agent-specific DeepSeek configuration steps only after the upstream provider model is confirmed.
+2. Run OpenClaw hosted DeepSeek smoke with a repository `DEEPSEEK_API_KEY` secret, then repeat on clean VM / real Mac.
 3. For macOS, use GitHub macOS runners for hosted smoke and a real Mac/cloud Mac for interactive release acceptance. A Windows-hosted macOS VM is not the release baseline.
 4. Never store API keys in the repository, artifacts, screenshots, command history, or chat logs. Use hidden input locally or a short-lived GitHub secret for runner-only tests.
 

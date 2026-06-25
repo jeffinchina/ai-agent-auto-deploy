@@ -11,6 +11,7 @@ param(
     [string]$SnapshotName = "clean-base",
     [switch]$RestoreSnapshot,
     [switch]$RunRealInstall,
+    [switch]$RunProviderGate,
     [switch]$PlanOnly
 )
 
@@ -89,16 +90,16 @@ function Get-ProviderGateNotes([string]$AgentId) {
     switch ($AgentId) {
         "codex" {
             return @(
-                "Provider gate: configure Codex user-level config for DeepSeek/OpenAI-compatible Chat Completions before release.",
-                "Conversation gate: run a minimal non-interactive prompt and capture sanitized output.",
-                "Current automation status: install/doctor only; DeepSeek conversation is not automated yet."
+                "Provider gate: prepare Codex + LiteLLM Responses bridge with install.ps1 -PrepareDeepSeekLiteLLM.",
+                "Conversation gate: start LiteLLM with runtime DEEPSEEK_API_KEY, then run a minimal codex exec prompt.",
+                "Current automation status: bridge config generation is automated; proxy startup and codex exec proof remain manual/VM pending."
             )
         }
         "openclaw" {
             return @(
-                "Provider gate: configure OpenClaw DeepSeek provider or onboarding flow before release.",
-                "Conversation gate: run a minimal OpenClaw prompt after provider setup and capture sanitized output.",
-                "Current automation status: install/version only; DeepSeek conversation is not automated yet."
+                "Provider gate: run install.ps1 -ConfigureDeepSeek with runtime DEEPSEEK_API_KEY.",
+                "Conversation gate: run install.ps1 -ConfigureDeepSeek -RunDeepSeekSmoke and capture sanitized output.",
+                "Current automation status: provider and conversation gate are implemented; clean VM execution is pending."
             )
         }
         "cursor" {
@@ -123,6 +124,7 @@ $planLines.Add("- Snapshot: " + $SnapshotName)
 $planLines.Add("- Shared folder: " + $SharedDir)
 $planLines.Add("- Agents: $($agents -join ', ')")
 $planLines.Add("- Mode: $(if ($RunRealInstall) { 'dry-run + real install' } else { 'dry-run only' })")
+$planLines.Add("- Provider gate: $(if ($RunProviderGate) { 'included in manual plan where supported' } else { 'not included' })")
 $planLines.Add("")
 $planLines.Add("## Manual fallback")
 $planLines.Add("")
@@ -144,6 +146,32 @@ foreach ($agentId in $agents) {
     }
     $planLines.Add('```')
     $planLines.Add("")
+    if ($RunProviderGate) {
+        $planLines.Add("Provider/conversation commands:")
+        $planLines.Add("")
+        $planLines.Add('```powershell')
+        switch ($agentId) {
+            "codex" {
+                $planLines.Add("powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -VerifyOnly -PrepareDeepSeekLiteLLM")
+                $planLines.Add('$env:DEEPSEEK_API_KEY = "sk-..."')
+                $planLines.Add('& "$env:LOCALAPPDATA\CodexDeepSeekLiteLLM\start-litellm-deepseek.ps1"')
+                $planLines.Add('# In a second PowerShell after LiteLLM starts:')
+                $planLines.Add('codex exec --ephemeral "Reply with exactly OK"')
+                $planLines.Add("Remove-Item Env:\DEEPSEEK_API_KEY")
+            }
+            "openclaw" {
+                $planLines.Add('$env:DEEPSEEK_API_KEY = "sk-..."')
+                $planLines.Add("powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -VerifyOnly -ConfigureDeepSeek")
+                $planLines.Add("powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -VerifyOnly -ConfigureDeepSeek -RunDeepSeekSmoke")
+                $planLines.Add("Remove-Item Env:\DEEPSEEK_API_KEY")
+            }
+            "cursor" {
+                $planLines.Add("# Configure DeepSeek in Cursor desktop UI if supported, then send one minimal prompt and save sanitized screenshot/output.")
+            }
+        }
+        $planLines.Add('```')
+        $planLines.Add("")
+    }
     foreach ($note in (Get-ProviderGateNotes $agentId)) {
         $planLines.Add("- $note")
     }

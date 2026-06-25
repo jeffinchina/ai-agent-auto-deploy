@@ -50,6 +50,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run-windows-vm-agent
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run-windows-vm-agent-tests.ps1 -GuestUser codex -GuestPasswordFile C:\path\outside\repo\guest-password.txt
 ```
 
+To include provider/conversation commands in the manual plan:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run-windows-vm-agent-tests.ps1 -PlanOnly -RunRealInstall -RunProviderGate
+```
+
+GitHub Actions can run OpenClaw DeepSeek hosted smoke when the repository has a `DEEPSEEK_API_KEY` secret and `workflow_dispatch` is started with `windows_smoke_agent=openclaw` and `deepseek_smoke=true`. Hosted smoke is useful evidence but still does not replace the clean VM gate.
+
 ## Package Verification
 
 Codex:

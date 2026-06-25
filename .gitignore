@@ -38,3 +38,7 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+
+# PowerShell may create this module analysis cache when LOCALAPPDATA is unset
+# in constrained test shells.
+/Microsoft/

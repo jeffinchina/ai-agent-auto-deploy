@@ -27,6 +27,11 @@ on:
           - codex
           - openclaw
           - cursor
+      deepseek_smoke:
+        description: "Run the selected agent's DeepSeek provider/conversation smoke when implemented. Requires DEEPSEEK_API_KEY secret."
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   windows:
@@ -77,6 +82,7 @@ jobs:
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           AGENT: ${{ inputs.macos_smoke_agent }}
+          DEEPSEEK_SMOKE: ${{ inputs.deepseek_smoke }}
         run: |
           set -euo pipefail
           case "$AGENT" in
@@ -88,12 +94,28 @@ jobs:
               bash installers/macos/claude-code/install.sh
               ;;
             codex)
+              if [ "${DEEPSEEK_SMOKE}" = "true" ]; then
+                echo "Codex DeepSeek smoke requires a Responses-compatible bridge and is not implemented in macOS workflow yet."
+                exit 1
+              fi
               bash installers/macos/codex/install.sh
               ;;
             openclaw)
-              bash installers/macos/openclaw/install.sh
+              if [ "${DEEPSEEK_SMOKE}" = "true" ]; then
+                if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
+                  echo "DEEPSEEK_API_KEY repository secret is required for OpenClaw macOS DeepSeek smoke."
+                  exit 1
+                fi
+                CONFIGURE_DEEPSEEK=1 RUN_DEEPSEEK_SMOKE=1 bash installers/macos/openclaw/install.sh
+              else
+                bash installers/macos/openclaw/install.sh
+              fi
               ;;
             cursor)
+              if [ "${DEEPSEEK_SMOKE}" = "true" ]; then
+                echo "Cursor DeepSeek smoke is a GUI/manual gate and is not implemented in macOS workflow yet."
+                exit 1
+              fi
               bash installers/macos/cursor/install.sh
               ;;
             *)
@@ -141,18 +163,33 @@ jobs:
         shell: powershell
         env:
           AGENT: ${{ inputs.windows_smoke_agent }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_SMOKE: ${{ inputs.deepseek_smoke }}
         run: |
           $ErrorActionPreference = "Stop"
           switch ($env:AGENT) {
             "codex" {
+              if ($env:DEEPSEEK_SMOKE -eq "true") {
+                throw "Codex DeepSeek smoke requires a Responses-compatible bridge and is not implemented in Windows workflow yet."
+              }
               powershell -NoProfile -ExecutionPolicy Bypass -File .\installers\windows\codex\install.ps1 -SkipLoginHint
               break
             }
             "openclaw" {
-              powershell -NoProfile -ExecutionPolicy Bypass -File .\installers\windows\openclaw\install.ps1
+              if ($env:DEEPSEEK_SMOKE -eq "true") {
+                if (-not $env:DEEPSEEK_API_KEY) {
+                  throw "DEEPSEEK_API_KEY repository secret is required for OpenClaw Windows DeepSeek smoke."
+                }
+                powershell -NoProfile -ExecutionPolicy Bypass -File .\installers\windows\openclaw\install.ps1 -ConfigureDeepSeek -RunDeepSeekSmoke
+              } else {
+                powershell -NoProfile -ExecutionPolicy Bypass -File .\installers\windows\openclaw\install.ps1
+              }
               break
             }
             "cursor" {
+              if ($env:DEEPSEEK_SMOKE -eq "true") {
+                throw "Cursor DeepSeek smoke is a GUI/manual gate and is not implemented in Windows workflow yet."
+              }
               powershell -NoProfile -ExecutionPolicy Bypass -File .\installers\windows\cursor\install.ps1 -InstallDesktop
               break
             }
