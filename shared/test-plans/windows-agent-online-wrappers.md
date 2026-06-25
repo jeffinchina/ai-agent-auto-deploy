@@ -68,11 +68,11 @@ openclaw --version
 Cursor:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -InstallCliWithBash
-cursor-agent --version
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -InstallDesktop
+Test-Path "$env:LOCALAPPDATA\Programs\Cursor\Cursor.exe"
 ```
 
-Cursor CLI requires Git Bash or WSL. If the clean VM does not have either, that is a product dependency finding, not a test pass.
+Cursor Agent CLI's official bash installer currently supports Linux/macOS, not Windows Git Bash. On Windows, treat WSL2 as the CLI route and native desktop as the Windows route.
 
 ## Pass Criteria
 
@@ -87,4 +87,5 @@ Cursor CLI requires Git Bash or WSL. If the clean VM does not have either, that 
 - Host static checks: automated.
 - GitHub Actions dry-run checks: automated.
 - Package zip, manifest, SHA256, and extracted file checks: automated.
+- GitHub Actions Windows runner smoke: passed for Codex, OpenClaw, and Cursor desktop.
 - Clean Windows VM real installs: pending for Codex/OpenClaw/Cursor.

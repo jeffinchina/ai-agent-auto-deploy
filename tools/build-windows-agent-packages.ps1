@@ -14,6 +14,8 @@ $agents = @(
         Id = "codex"
         Name = "Codex"
         Script = "install.ps1"
+        DryRunArgs = "-DryRun"
+        InstallArgs = ""
         Notes = @(
             "Online installer wrapper for the official OpenAI Codex installer.",
             "Run install.ps1 -DryRun first on a clean Windows VM.",
@@ -24,6 +26,8 @@ $agents = @(
         Id = "openclaw"
         Name = "OpenClaw"
         Script = "install.ps1"
+        DryRunArgs = "-DryRun"
+        InstallArgs = ""
         Notes = @(
             "Online installer wrapper for the official OpenClaw Windows installer.",
             "Run install.ps1 -DryRun first on a clean Windows VM.",
@@ -34,10 +38,12 @@ $agents = @(
         Id = "cursor"
         Name = "Cursor"
         Script = "install.ps1"
+        DryRunArgs = "-InstallDesktop -DryRun"
+        InstallArgs = "-InstallDesktop"
         Notes = @(
-            "Conservative Windows wrapper for Cursor CLI/Desktop setup.",
-            "CLI setup requires Git Bash or WSL because the official Cursor CLI installer is a bash script.",
-            "Desktop app install is currently documented rather than silently automated."
+            "Conservative Windows wrapper for Cursor desktop setup via winget.",
+            "Cursor Agent CLI's official bash installer currently supports Linux/macOS, not Windows Git Bash.",
+            "Use WSL2 for the CLI route; use -InstallDesktop for native Windows desktop installation."
         )
     }
 )
@@ -63,6 +69,8 @@ pause
 
 function New-PackageReadme($agent, [string]$Path, [string]$Version) {
     $notes = ($agent.Notes | ForEach-Object { "- $_" }) -join "`r`n"
+    $dryRunArgs = if ($agent.DryRunArgs) { " $($agent.DryRunArgs)" } else { "" }
+    $installArgs = if ($agent.InstallArgs) { " $($agent.InstallArgs)" } else { "" }
     $content = @"
 # $($agent.Name) Windows Installer v$Version
 
@@ -76,18 +84,18 @@ $notes
 
 Open PowerShell in this folder:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -DryRun
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
-```
+~~~powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1$dryRunArgs
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1$installArgs
+~~~
 
-You can also double-click `run.cmd`.
+You can also double-click run.cmd.
 
 ## Verification
 
 After installation, close the old terminal, open a new PowerShell window, and run the version command shown by the installer.
 
-Logs are written to the local `logs` folder. Do not paste logs publicly if they contain account paths or provider output.
+Logs are written to the local logs folder. Do not paste logs publicly if they contain account paths or provider output.
 "@
     Write-TextFile $Path $content
 }
@@ -128,14 +136,16 @@ foreach ($agent in $agents) {
     New-RunCmd (Join-Path $packageDir "run.cmd")
     New-PackageReadme $agent (Join-Path $packageDir "README.md") $Version
 
+    $dryRunCommandArgs = if ($agent.DryRunArgs) { " $($agent.DryRunArgs)" } else { "" }
+    $installCommandArgs = if ($agent.InstallArgs) { " $($agent.InstallArgs)" } else { "" }
     $entry = [ordered]@{
         id = $agent.Id
         name = $agent.Name
         version = $Version
         folder = $packageName
         status = "online-wrapper"
-        dryRunCommand = "powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -DryRun"
-        installCommand = "powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1"
+        dryRunCommand = "powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1$dryRunCommandArgs"
+        installCommand = "powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1$installCommandArgs"
     }
 
     if (-not $NoZip) {

@@ -2,32 +2,38 @@
 
 Status: conservative online wrapper, not a fully offline release package.
 
-Cursor CLI's official installer is a bash script. On Windows this means Git Bash or WSL is required for CLI installation. The desktop app is documented but not silently installed yet.
+Cursor desktop is the native Windows path and is installed through `winget`.
+
+Cursor Agent CLI's official bash installer currently supports Linux/macOS, not Windows Git Bash. For CLI usage on Windows, use WSL2 and run the official installer inside the Linux environment.
 
 ## Run
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -DryRun
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -InstallCliWithBash
-```
-
-Desktop note:
-
-```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -InstallDesktop -DryRun
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -InstallDesktop
 ```
 
-The desktop flag currently fails with a clear message instead of pretending to install the app.
+WSL2/Linux CLI note:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -InstallCliWithBash
+```
+
+The CLI flag fails early on Windows Git Bash with a clear message instead of pretending that Cursor Agent CLI is supported there.
 
 ## Verification
 
 Open a fresh PowerShell after installation:
 
 ```powershell
-cursor-agent --version
+Test-Path "$env:LOCALAPPDATA\Programs\Cursor\Cursor.exe"
 ```
 
-If the command is missing, confirm Git Bash or WSL was installed before running the CLI installer.
+For WSL2/Linux CLI installs, verify inside WSL:
+
+```bash
+cursor-agent --version
+```
 
 Test harnesses can run verification without installing:
 
