@@ -105,7 +105,7 @@
   },
   "currentBlockers": [
     "VirtualBox guestcontrol cannot run without a valid guest username/password file.",
-    "GitHub repository has no DEEPSEEK_API_KEY secret, so hosted DeepSeek smoke cannot run yet.",
+    "GitHub repository has no DEEPSEEK_API_KEY secret, so hosted DeepSeek smoke cannot run yet. Use tools/set-github-deepseek-secret.ps1, then tools/run-hosted-deepseek-smoke.ps1.",
     "macOS release acceptance needs Apple hardware, cloud Mac, or a real Mac-based VM; a Windows-hosted macOS VM is not the release baseline."
   ]
 }

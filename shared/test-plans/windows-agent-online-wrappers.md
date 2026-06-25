@@ -84,6 +84,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run-windows-vm-agent
 
 GitHub Actions can run OpenClaw DeepSeek hosted smoke when the repository has a `DEEPSEEK_API_KEY` secret and `workflow_dispatch` is started with `windows_smoke_agent=openclaw` and `deepseek_smoke=true`. Hosted smoke is useful evidence but still does not replace the clean VM gate.
 
+Set the GitHub secret without echoing the key:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\set-github-deepseek-secret.ps1
+```
+
+Then dispatch hosted DeepSeek smoke for implemented CLI paths:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run-hosted-deepseek-smoke.ps1 -Platform windows -Agent codex -Watch
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run-hosted-deepseek-smoke.ps1 -Platform windows -Agent openclaw -Watch
+```
+
 ## Package Verification
 
 Codex:

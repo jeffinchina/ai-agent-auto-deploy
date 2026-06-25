@@ -35,6 +35,20 @@ The repository workflow also has a manual `workflow_dispatch` smoke entry. Selec
 
 Codex and OpenClaw can also run provider/conversation smoke on GitHub macOS runners when `deepseek_smoke=true` and the repository has a `DEEPSEEK_API_KEY` secret. Cursor DeepSeek smoke is not wired into the macOS workflow yet.
 
+Set the GitHub secret without echoing the key:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\set-github-deepseek-secret.ps1
+```
+
+Then dispatch hosted DeepSeek smoke:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run-hosted-deepseek-smoke.ps1 -Platform macos -Agent claude-code -Watch
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run-hosted-deepseek-smoke.ps1 -Platform macos -Agent codex -Watch
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\run-hosted-deepseek-smoke.ps1 -Platform macos -Agent openclaw -Watch
+```
+
 ## Real Mac Release Gate
 
 Before publishing a macOS package, verify on a real Mac or cloud Mac:
