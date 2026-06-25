@@ -153,7 +153,7 @@ jobs:
               break
             }
             "cursor" {
-              powershell -NoProfile -ExecutionPolicy Bypass -File .\installers\windows\cursor\install.ps1 -InstallCliWithBash
+              powershell -NoProfile -ExecutionPolicy Bypass -File .\installers\windows\cursor\install.ps1 -InstallDesktop
               break
             }
             default {

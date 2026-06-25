@@ -42,11 +42,12 @@ if (Test-Path $cursorInstaller) {
     if ($LASTEXITCODE -eq 0) {
         Fail "Cursor installer without an explicit mode should fail instead of reporting success"
     }
-    $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $cursorInstaller -InstallDesktop 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Fail "Cursor installer -InstallDesktop should fail until desktop automation is implemented"
+    $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $cursorInstaller -InstallDesktop -DryRun 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        $tail = ($output | Select-Object -Last 20) -join "`n"
+        Fail "Cursor installer -InstallDesktop dry-run should pass:`n$tail"
     }
-    Pass "Cursor explicit-mode failure checks passed"
+    Pass "Cursor explicit-mode checks passed"
 }
 
 $mockVerifier = Join-Path $Root "tests\verify-windows-installer-mocks.ps1"

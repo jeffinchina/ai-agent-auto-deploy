@@ -45,6 +45,30 @@ function Invoke-Captured($file, [string[]]$arguments, [int]$timeoutSec = 300) {
     return @{ ExitCode = $p.ExitCode; StdOut = Sanitize $outTask.Result; StdErr = Sanitize $errTask.Result }
 }
 
+function Refresh-ProcessPath {
+    $parts = New-Object System.Collections.Generic.List[string]
+    foreach ($part in ($env:Path -split ';')) {
+        if ($part -and -not $parts.Contains($part)) { $parts.Add($part) }
+    }
+    foreach ($scope in @("Machine", "User")) {
+        $value = [Environment]::GetEnvironmentVariable("Path", $scope)
+        if ($value) {
+            foreach ($part in ($value -split ';')) {
+                if ($part -and -not $parts.Contains($part)) { $parts.Add($part) }
+            }
+        }
+    }
+    $common = @(
+        "$env:USERPROFILE\.local\bin",
+        "$env:LOCALAPPDATA\Programs\Cursor",
+        "$env:LOCALAPPDATA\Programs\cursor"
+    )
+    foreach ($part in $common) {
+        if ((Test-Path $part) -and -not $parts.Contains($part)) { $parts.Add($part) }
+    }
+    $env:Path = ($parts -join ';')
+}
+
 function Find-Bash {
     $candidates = @(
         "$env:ProgramFiles\Git\bin\bash.exe",
@@ -57,6 +81,26 @@ function Find-Bash {
     return $null
 }
 
+function Get-BashKernelName([string]$bashPath) {
+    if (-not $bashPath) { return $null }
+    $r = Invoke-Captured $bashPath @("-lc", "uname -s") 30
+    if ($r.ExitCode -ne 0) { return $null }
+    return $r.StdOut.Trim()
+}
+
+function Find-CursorDesktop {
+    $candidates = @(
+        "$env:LOCALAPPDATA\Programs\Cursor\Cursor.exe",
+        "$env:LOCALAPPDATA\Programs\cursor\Cursor.exe",
+        "$env:ProgramFiles\Cursor\Cursor.exe",
+        "${env:ProgramFiles(x86)}\Cursor\Cursor.exe"
+    )
+    foreach($p in $candidates){ if(Test-Path $p){ return $p } }
+    $cmd = Get-Command cursor -ErrorAction SilentlyContinue
+    if($cmd){ return $cmd.Source }
+    return $null
+}
+
 function Preflight {
     Say Cyan "Cursor Windows Installer v$VERSION"
     if ([Environment]::OSVersion.Platform -ne "Win32NT") { Fail "当前脚本仅支持 Windows" "请使用 Windows 10/11。" }
@@ -66,11 +110,19 @@ function Preflight {
         Fail "未选择 Cursor 安装模式" "CLI 安装请加 -InstallCliWithBash；桌面 App 当前请从 https://cursor.com/download 手动安装。"
     }
     if (-not $DryRun -and -not $VerifyOnly -and $InstallDesktop -and -not $InstallCliWithBash) {
-        Fail "Cursor 桌面 App 自动安装尚未实现" "请使用官方下载页安装桌面 App；CLI 自动安装请加 -InstallCliWithBash。"
+        $winget = Get-Command winget -ErrorAction SilentlyContinue
+        if (-not $winget) { Fail "未找到 winget" "Cursor 桌面版自动安装需要 Windows Package Manager；也可访问 https://cursor.com/download 手动安装。" }
     }
     if ($InstallCliWithBash) {
         $bash = Find-Bash
-        if ($bash) { Info "检测到 bash: $bash" }
+        if ($bash) {
+            Info "检测到 bash: $bash"
+            $kernel = Get-BashKernelName $bash
+            if ($kernel) { Info "bash uname: $kernel" }
+            if (-not $DryRun -and -not $VerifyOnly -and $kernel -notmatch '^(Linux|Darwin)') {
+                Fail "Cursor Agent CLI 官方安装器不支持当前 bash 环境: $kernel" "Windows 原生请使用 -InstallDesktop；需要 CLI 时请在 WSL2 Linux 或 macOS 中运行 Cursor 官方安装器。"
+            }
+        }
         elseif (-not $DryRun) { Fail "未找到 Git Bash/WSL bash" "Cursor CLI 官方安装器是 bash 脚本；请先安装 Git for Windows 或 WSL2。" }
     }
     Ok "安装前检测完成"
@@ -111,9 +163,27 @@ function Install-CursorDesktop {
     if ($DryRun) {
         Info "DryRun: 跳过 Cursor 桌面 App 安装"
     } else {
-        Fail "Cursor 桌面 App 自动下载/静默安装尚未实现" "请使用官方下载页: https://cursor.com/download"
+        $existing = Find-CursorDesktop
+        if ($existing) {
+            Ok "Cursor 桌面版已存在: $existing"
+            return
+        }
+        Info "使用 winget 安装 Cursor 桌面版..."
+        $r = Invoke-Captured "winget.exe" @(
+            "install",
+            "--id", "Anysphere.Cursor",
+            "--exact",
+            "--source", "winget",
+            "--scope", "user",
+            "--silent",
+            "--accept-package-agreements",
+            "--accept-source-agreements"
+        ) 900
+        Log $r.StdOut
+        Log $r.StdErr
+        if ($r.ExitCode -ne 0) { Fail "Cursor 桌面版安装失败" "请查看日志，或手动访问 https://cursor.com/download。" }
+        Ok "Cursor 桌面版安装命令完成"
     }
-    Info "当前请使用官方下载页: https://cursor.com/download"
 }
 
 function Verify {
@@ -121,11 +191,22 @@ function Verify {
         Ok "Cursor Windows dry-run 通过"
         return
     }
-    $cursorAgent = Get-Command cursor-agent -ErrorAction SilentlyContinue
-    if ($cursorAgent) {
-        Ok "cursor-agent 可用: $($cursorAgent.Source)"
-    } else {
-        Fail "未检测到 cursor-agent" "请打开新终端后重试；如果仍失败，请确认 Git Bash/WSL 中的官方安装器是否成功。"
+    Refresh-ProcessPath
+    if ($InstallDesktop) {
+        $desktop = Find-CursorDesktop
+        if ($desktop) {
+            Ok "Cursor 桌面版可用: $desktop"
+        } else {
+            Fail "未检测到 Cursor 桌面版" "请打开新终端后重试；如果仍失败，请查看 winget 安装日志或访问 https://cursor.com/download。"
+        }
+    }
+    if ($InstallCliWithBash -or (-not $InstallDesktop)) {
+        $cursorAgent = Get-Command cursor-agent -ErrorAction SilentlyContinue
+        if ($cursorAgent) {
+            Ok "cursor-agent 可用: $($cursorAgent.Source)"
+        } else {
+            Fail "未检测到 cursor-agent" "Cursor Agent CLI 官方安装器当前不支持 Windows Git Bash；请在 WSL2 Linux/macOS 中安装，或仅使用 -InstallDesktop。"
+        }
     }
 }
 

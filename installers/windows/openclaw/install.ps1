@@ -45,6 +45,42 @@ function Invoke-Captured($file, [string[]]$arguments, [int]$timeoutSec = 300) {
     return @{ ExitCode = $p.ExitCode; StdOut = Sanitize $outTask.Result; StdErr = Sanitize $errTask.Result }
 }
 
+function Refresh-ProcessPath {
+    $parts = New-Object System.Collections.Generic.List[string]
+    foreach ($part in ($env:Path -split ';')) {
+        if ($part -and -not $parts.Contains($part)) { $parts.Add($part) }
+    }
+    foreach ($scope in @("Machine", "User")) {
+        $value = [Environment]::GetEnvironmentVariable("Path", $scope)
+        if ($value) {
+            foreach ($part in ($value -split ';')) {
+                if ($part -and -not $parts.Contains($part)) { $parts.Add($part) }
+            }
+        }
+    }
+    $common = @(
+        "$env:USERPROFILE\.local\bin",
+        "$env:APPDATA\npm",
+        "$env:LOCALAPPDATA\OpenClaw\deps\portable-node",
+        "$env:LOCALAPPDATA\OpenClaw\deps\portable-git\cmd",
+        "$env:LOCALAPPDATA\OpenClaw\deps\portable-git\bin",
+        "$env:LOCALAPPDATA\OpenClaw\deps\portable-git\mingw64\bin",
+        "$env:LOCALAPPDATA\OpenClaw\deps\portable-git\usr\bin"
+    )
+    foreach ($part in $common) {
+        if ((Test-Path $part) -and -not $parts.Contains($part)) { $parts.Add($part) }
+    }
+    $env:Path = ($parts -join ';')
+}
+
+function Invoke-PowerShellCommandCaptured([string]$commandName, [string[]]$arguments, [int]$timeoutSec = 120) {
+    $quotedArgs = ($arguments | ForEach-Object {
+        "'" + ([string]$_ -replace "'", "''") + "'"
+    }) -join " "
+    $script = "& '$commandName' $quotedArgs; if (`$null -ne `$LASTEXITCODE) { exit `$LASTEXITCODE }"
+    return Invoke-Captured "powershell.exe" @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $script) $timeoutSec
+}
+
 function Preflight {
     Say Cyan "OpenClaw Windows Installer v$VERSION"
     if ([Environment]::OSVersion.Platform -ne "Win32NT") { Fail "当前脚本仅支持 Windows" "请使用 Windows 10/11。" }
@@ -92,9 +128,11 @@ function Verify {
         Ok "OpenClaw Windows dry-run 通过"
         return
     }
+    Refresh-ProcessPath
     $cmd = Get-Command openclaw -ErrorAction SilentlyContinue
     if (-not $cmd) { Fail "未找到 openclaw 命令" "请重新打开终端或检查安装日志。" }
-    $v = Invoke-Captured $cmd.Source @("--version") 60
+    Info "检测到 openclaw: $($cmd.Source)"
+    $v = Invoke-PowerShellCommandCaptured "openclaw" @("--version") 60
     Log $v.StdOut
     Log $v.StdErr
     if ($v.ExitCode -ne 0) { Fail "openclaw --version 返回非 0" "请重新打开终端后重试；如果仍失败，请检查安装日志。" }
