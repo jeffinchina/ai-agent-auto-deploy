@@ -6,9 +6,26 @@ The macOS release gate needs a real macOS environment. A Windows-hosted macOS VM
 
 | Layer | Use | Notes |
 | --- | --- | --- |
-| GitHub Actions `macos-15` runner | Repeatable CI smoke | Best for install scripts, command verification, and sanitized artifacts. Not enough for GUI prompts or first-launch acceptance. |
-| Real Mac with local VM | Human acceptance | Best user-flow match. Use UTM, Parallels, VirtualBuddy, or Apple Virtualization Framework on Apple hardware. |
-| Cloud Mac | Remote human/agent acceptance | Use when no physical Mac is available. Pick a provider that allows snapshot/reset and fresh macOS sessions. |
+| GitHub Actions `macos-15` / `macos-26` runner | Repeatable CI smoke | Best for install scripts, command verification, and sanitized artifacts. Not enough for GUI prompts or first-launch acceptance. |
+| Real Mac with local VM | Human acceptance | Best user-flow match. Use UTM, Parallels, VirtualBuddy, or Apple Virtualization Framework on Apple hardware. Apple Silicon macOS guests can have snapshot/restore limitations, so keep a clean VM clone or clean user reset recipe. |
+| Cloud Mac | Remote human/agent acceptance | Use when no physical Mac is available. Prefer MacStadium/Orka-style VM images if snapshot/reset matters; AWS EC2 Mac is useful for bare-metal access but has a 24-hour minimum host allocation. |
+
+## Practical Recommendation
+
+Use this order:
+
+1. Keep GitHub Actions as the fast repeatable layer. Run normal hosted smoke for every agent; run DeepSeek smoke only through a repository secret and only when needed.
+2. For release acceptance, rent or use an Apple-hardware Mac environment rather than a Windows-hosted macOS VM.
+3. If you own or can borrow an Apple Silicon Mac, use VirtualBuddy or UTM for simple clean macOS guest testing. Because snapshot support can be limited for macOS guests, create a clean base VM, shut it down, and duplicate the VM bundle before each agent test.
+4. If you need a cloud path, prefer a provider that gives resettable macOS VM images. MacStadium/Orka is the best fit for repeated installer QA. AWS EC2 Mac is acceptable for one-off bare-metal testing, but budget for the 24-hour minimum.
+
+Useful references:
+
+- GitHub-hosted macOS runner docs: https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+- GitHub `macos-26` runner availability: https://github.blog/changelog/2026-02-26-macos-26-is-now-generally-available-for-github-hosted-runners/
+- AWS EC2 Mac 24-hour minimum allocation: https://aws.amazon.com/ec2/instance-types/mac/
+- AWS EC2 Mac user guide: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-mac-instances.html
+- MacStadium macOS virtualization overview: https://support.macstadium.com/hc/en-us/articles/39227685958043-MacStadium-Overview
 
 ## Why Not a Windows-Hosted macOS VM
 
