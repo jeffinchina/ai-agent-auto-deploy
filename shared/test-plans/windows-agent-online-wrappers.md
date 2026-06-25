@@ -51,6 +51,14 @@ For release-level evidence, restore `clean-base` before each package and double-
 
 The runner prompts once for `DEEPSEEK_API_KEY` when provider gates are requested, keeps it in the current PowerShell process only, sanitizes transcripts, and writes evidence under `\\VBOXSVR\CCDeployPackage\vm-results\guest-<timestamp>`.
 
+After a VM run, scan the evidence from the host:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\scan-vm-acceptance-results.ps1 -ResultsRoot D:\VMs\CCDeployTest\Shared\vm-results -OutputPath D:\VMs\CCDeployTest\Shared\vm-results\acceptance-scan.json
+```
+
+The scan fails if any result file appears to contain a real API key or bearer token. Use `-FailOnMissingGuestRuns` when a release gate must prove that at least one `guest-*` result exists.
+
 For each package:
 
 1. Copy the package folder to the VM desktop.

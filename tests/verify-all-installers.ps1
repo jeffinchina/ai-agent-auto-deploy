@@ -194,6 +194,35 @@ if (Test-Path $vmTestScript) {
     }
 }
 
+$vmScanScript = Join-Path $Root "tools\scan-vm-acceptance-results.ps1"
+if (Test-Path $vmScanScript) {
+    $tempResults = Join-Path ([System.IO.Path]::GetTempPath()) ("ai-agent-auto-deploy-vm-results-" + [guid]::NewGuid().ToString("N"))
+    try {
+        New-Item -ItemType Directory -Path $tempResults -Force | Out-Null
+        $guest = Join-Path $tempResults "guest-20260101-000000"
+        New-Item -ItemType Directory -Path $guest -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $guest "SUMMARY.md") -Value @(
+            "# Windows Agent VM Acceptance 20260101-000000",
+            "## codex",
+            "- PASS: Codex dry-run",
+            "- PASS: Codex install",
+            "## Result",
+            "PASS for automated gates that ran."
+        ) -Encoding UTF8
+        Set-Content -LiteralPath (Join-Path $guest "transcript.txt") -Value "sanitized transcript" -Encoding UTF8
+        $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $vmScanScript -ResultsRoot $tempResults 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            $tail = ($output | Select-Object -Last 20) -join "`n"
+            Fail "VM acceptance result scan failed:`n$tail"
+        }
+        $json = ($output | Out-String).Trim() | ConvertFrom-Json
+        if ($json.guestRunCount -ne 1) { Fail "VM acceptance result scan did not detect guest run" }
+        Pass "VM acceptance result scanner passed"
+    } finally {
+        if (Test-Path $tempResults) { Remove-Item -LiteralPath $tempResults -Recurse -Force }
+    }
+}
+
 $bash = Get-Command bash -ErrorAction SilentlyContinue
 if (-not $bash) {
     $candidates = @(
