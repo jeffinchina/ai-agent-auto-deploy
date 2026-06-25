@@ -4,6 +4,8 @@ This plan covers the Windows Codex, OpenClaw, and Cursor online wrapper packages
 
 These packages are not yet equivalent to the Claude Code Windows v3.2.3 offline package. Claude v3.2.3 bundles offline assets and has passed a real VM install. These wrappers call official upstream online installers and must pass clean-VM smoke tests before release.
 
+The final release gate is stricter than command installation: each package must prove the intended provider setup and a minimal conversation through the actual agent path. At the moment, Codex/OpenClaw/Cursor Windows have hosted installation smoke evidence, but not clean VM DeepSeek conversation evidence.
+
 ## Static Gate
 
 Run on the host before touching a VM:
@@ -35,7 +37,7 @@ For each package:
 
 1. Copy the package folder to the VM desktop.
 2. Open PowerShell in that folder.
-3. Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -DryRun`.
+3. Run the package-specific dry-run command below.
 4. Run the real install command.
 5. Close PowerShell and open a fresh PowerShell.
 6. Run the package-specific verification command below.
@@ -68,17 +70,31 @@ openclaw --version
 Cursor:
 
 ```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -InstallDesktop -DryRun
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -InstallDesktop
-Test-Path "$env:LOCALAPPDATA\Programs\Cursor\Cursor.exe"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -VerifyOnly -InstallDesktop
 ```
 
 Cursor Agent CLI's official bash installer currently supports Linux/macOS, not Windows Git Bash. On Windows, treat WSL2 as the CLI route and native desktop as the Windows route.
 
+## Provider And Conversation Gate
+
+After the basic install succeeds, the package is still not release-level until the provider path is verified:
+
+| Agent | Provider gate | Conversation gate |
+| --- | --- | --- |
+| Codex | Configure DeepSeek through Codex's supported custom provider model. | Run one minimal non-interactive prompt and save sanitized output. |
+| OpenClaw | Configure DeepSeek through OpenClaw provider/onboarding settings. | Run one minimal prompt and save sanitized output. |
+| Cursor | Configure DeepSeek through Cursor desktop settings unless a supported CLI path is confirmed. | Send one minimal GUI prompt and save sanitized screenshot/output. |
+
+Do not paste or save API keys. Capture only sanitized logs and the final success/failure evidence.
+
 ## Pass Criteria
 
 - Installer exits with code 0, or gives a clear dependency/error message that a normal user can act on.
-- A fresh terminal can find the installed command.
-- Version command returns a recognizable version string.
+- CLI agents: a fresh terminal can find the installed command.
+- CLI agents: version or doctor command returns a recognizable success result.
+- Desktop agents: the application is installed in a supported location and the package `-VerifyOnly` check passes.
 - Logs exist and do not expose secrets.
 - The README tells the user what to do next for login or first use.
 

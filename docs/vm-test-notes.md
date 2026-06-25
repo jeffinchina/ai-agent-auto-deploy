@@ -44,13 +44,15 @@ Generated host-side packages are available in:
 - `C:\Users\65295\ai-agent-auto-deploy\dist\windows`
 - `D:\VMs\CCDeployTest\Shared`
 
-These packages currently have static, dry-run, package, manifest, and SHA256 verification only. Clean VM real install validation is still pending for:
+These packages currently have static, dry-run, package, manifest, SHA256 verification, and GitHub Windows runner smoke. Clean VM real install validation is still pending for:
 
 - Codex Windows
 - OpenClaw Windows
 - Cursor Windows
 
 GitHub Actions can also run manual Windows runner smoke checks for these online wrappers. See `docs/windows-smoke-results.md`. This is useful evidence, but it does not replace the clean VM test because GitHub runners already include developer tooling.
+
+The release target is stricter than installation: each package must also prove a DeepSeek/provider setup and a minimal conversation path. Current Windows agent wrappers have not reached that provider/conversation gate yet. See `docs/release-acceptance-matrix.md`.
 
 To generate a structured test plan and, when guest credentials are available, run guestcontrol-based checks:
 

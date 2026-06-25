@@ -4,6 +4,8 @@ This plan covers the macOS Claude Code, Codex, OpenClaw, and Cursor online wrapp
 
 Windows-hosted macOS VMs are not a supported release baseline. Use GitHub Actions macOS runners for repeatable CI and a real Mac or cloud Mac for release acceptance.
 
+See `docs/macos-virtual-environment.md` for the human-test environment recommendation.
+
 ## Windows Host Gate
 
 Windows can verify repository structure and packaging only:
@@ -47,5 +49,6 @@ Before publishing a macOS package, verify on a real Mac or cloud Mac:
 - Shell syntax checks: automated in CI.
 - Dry-run checks: automated in CI.
 - Package zip, manifest, SHA256, and extracted file checks: automated on Windows.
+- GitHub macOS hosted smoke: passed for Codex, OpenClaw, and Cursor; pending for Claude Code because the full smoke needs a runtime DeepSeek key.
 - Real macOS install smoke tests: pending.
 - Real Mac first-use tests: pending.

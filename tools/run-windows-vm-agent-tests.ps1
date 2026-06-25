@@ -65,8 +65,15 @@ function Invoke-GuestPowerShell([string]$Command, [string]$OutFile) {
 
 function Get-InstallArgs([string]$AgentId) {
     switch ($AgentId) {
-        "cursor" { return "-InstallCliWithBash" }
+        "cursor" { return "-InstallDesktop" }
         default { return "" }
+    }
+}
+
+function Get-DryRunArgs([string]$AgentId) {
+    switch ($AgentId) {
+        "cursor" { return "-InstallDesktop -DryRun" }
+        default { return "-DryRun" }
     }
 }
 
@@ -74,7 +81,33 @@ function Get-VerifyCommand([string]$AgentId) {
     switch ($AgentId) {
         "codex" { return "codex --version; codex doctor" }
         "openclaw" { return "openclaw --version" }
-        "cursor" { return "cursor-agent --version" }
+        "cursor" { return "& '\\VBOXSVR\CCDeployPackage\cursor-windows-v0.1.0\install.ps1' -VerifyOnly -InstallDesktop" }
+    }
+}
+
+function Get-ProviderGateNotes([string]$AgentId) {
+    switch ($AgentId) {
+        "codex" {
+            return @(
+                "Provider gate: configure Codex user-level config for DeepSeek/OpenAI-compatible Chat Completions before release.",
+                "Conversation gate: run a minimal non-interactive prompt and capture sanitized output.",
+                "Current automation status: install/doctor only; DeepSeek conversation is not automated yet."
+            )
+        }
+        "openclaw" {
+            return @(
+                "Provider gate: configure OpenClaw DeepSeek provider or onboarding flow before release.",
+                "Conversation gate: run a minimal OpenClaw prompt after provider setup and capture sanitized output.",
+                "Current automation status: install/version only; DeepSeek conversation is not automated yet."
+            )
+        }
+        "cursor" {
+            return @(
+                "Provider gate: configure Cursor desktop model/API settings for DeepSeek through the GUI unless a supported CLI path is confirmed.",
+                "Conversation gate: send one minimal prompt in the Cursor UI and capture a sanitized screenshot/result.",
+                "Current automation status: desktop install only; DeepSeek conversation is manual/GUI pending."
+            )
+        }
     }
 }
 
@@ -97,18 +130,23 @@ $planLines.Add("If guestcontrol credentials are not available, copy each package
 $planLines.Add("")
 foreach ($agentId in $agents) {
     $package = "$agentId-windows-v0.1.0"
+    $dryRunArgs = Get-DryRunArgs $agentId
     $installArgs = Get-InstallArgs $agentId
     $planLines.Add("### $agentId")
     $planLines.Add("")
     $planLines.Add('```powershell')
     $planLines.Add(('cd "{0}"' -f $package))
-    $planLines.Add("powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -DryRun")
+    $planLines.Add(("powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 {0}" -f $dryRunArgs).Trim())
     if ($RunRealInstall) {
         $planLines.Add(("powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 {0}" -f $installArgs).Trim())
         $verifyCommand = Get-VerifyCommand $agentId
         $planLines.Add($verifyCommand)
     }
     $planLines.Add('```')
+    $planLines.Add("")
+    foreach ($note in (Get-ProviderGateNotes $agentId)) {
+        $planLines.Add("- $note")
+    }
     $planLines.Add("")
 }
 Write-TextFile (Join-Path $resultsDir "PLAN.md") ($planLines -join "`r`n")
@@ -144,7 +182,8 @@ if ($RestoreSnapshot) {
 
 foreach ($agentId in $agents) {
     $package = "\\VBOXSVR\CCDeployPackage\$agentId-windows-v0.1.0"
-    $dryRunCommand = "& '$package\install.ps1' -DryRun"
+    $dryRunArgs = Get-DryRunArgs $agentId
+    $dryRunCommand = ("& '$package\install.ps1' {0}" -f $dryRunArgs).Trim()
     $dryRun = Invoke-GuestPowerShell $dryRunCommand (Join-Path $resultsDir "$agentId-dry-run.txt")
     if ($dryRun.ExitCode -ne 0) { throw "$agentId dry-run failed. See $resultsDir" }
 
