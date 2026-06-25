@@ -27,10 +27,16 @@ if command -v openclaw >/dev/null 2>&1; then
   ok "OpenClaw already exists: $(command -v openclaw)"
 else
   info "Running OpenClaw official installer..."
+  args=(--version "$TAG" --no-prompt)
   if [ "$RUN_ONBOARDING" = "1" ]; then
-    curl -fsSL https://openclaw.ai/install.sh | bash -s -- --tag "$TAG" >> "$LOGFILE" 2>&1 || fail "OpenClaw install failed."
+    :
   else
-    curl -fsSL https://openclaw.ai/install.sh | bash -s -- --tag "$TAG" --no-onboard >> "$LOGFILE" 2>&1 || fail "OpenClaw install failed."
+    args+=(--no-onboard)
+  fi
+  if ! curl -fsSL https://openclaw.ai/install.sh | bash -s -- "${args[@]}" >> "$LOGFILE" 2>&1; then
+    warn "OpenClaw installer log tail:"
+    tail -n 40 "$LOGFILE" || true
+    fail "OpenClaw install failed."
   fi
   ok "OpenClaw install command complete"
 fi
