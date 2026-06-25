@@ -46,6 +46,17 @@ Before publishing a macOS package, verify on a real Mac or cloud Mac:
 - uninstall/reset notes.
 - upgrade from previous package, once previous packages exist.
 
+After copying or downloading the package folders onto the Mac, run one package per clean Mac user/VM restore:
+
+```bash
+bash Run-macOS-Agent-Acceptance.sh --agent claude-code --package-root "$PWD" --results-root "$PWD/macos-results" --provider-gate
+bash Run-macOS-Agent-Acceptance.sh --agent codex --package-root "$PWD" --results-root "$PWD/macos-results" --provider-gate --install-litellm-proxy
+bash Run-macOS-Agent-Acceptance.sh --agent openclaw --package-root "$PWD" --results-root "$PWD/macos-results" --provider-gate
+bash Run-macOS-Agent-Acceptance.sh --agent cursor --package-root "$PWD" --results-root "$PWD/macos-results" --provider-gate
+```
+
+The runner writes sanitized evidence under `macos-results/guest-<timestamp>`. Cursor still records a manual GUI gate for DeepSeek provider/conversation verification.
+
 OpenClaw DeepSeek release gate:
 
 ```bash

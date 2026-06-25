@@ -161,6 +161,10 @@ $manifestPath = Join-Path $OutputDir "macos-agent-packages.json"
 Write-TextFile $manifestPath ($manifest | ConvertTo-Json -Depth 6)
 if ($SharedDir) {
     Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $SharedDir "macos-agent-packages.json") -Force
+    $runner = Join-Path $Root "shared\macos\Run-macOS-Agent-Acceptance.sh"
+    if (Test-Path $runner) {
+        Copy-Item -LiteralPath $runner -Destination (Join-Path $SharedDir "Run-macOS-Agent-Acceptance.sh") -Force
+    }
 }
 
 Write-Host "Built macOS agent packages in: $OutputDir" -ForegroundColor Green

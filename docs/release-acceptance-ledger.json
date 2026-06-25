@@ -69,7 +69,8 @@
       "clean_macos_install": "pending",
       "provider_smoke": "implemented_pending_runner_or_real_mac",
       "conversation_smoke": "implemented_pending_runner_or_real_mac",
-      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\claude-code-macos-v0.1.0"
+      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\claude-code-macos-v0.1.0",
+      "releaseGateCommand": "bash Run-macOS-Agent-Acceptance.sh --agent claude-code --package-root \"$PWD\" --results-root \"$PWD/macos-results\" --provider-gate"
     },
     "codex-v0.1.0": {
       "status": "not_release_level",
@@ -78,7 +79,8 @@
       "clean_macos_install": "pending",
       "provider_smoke": "implemented_litellm_bridge_pending_deepseek_smoke",
       "conversation_smoke": "implemented_pending_deepseek_smoke",
-      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\codex-macos-v0.1.0"
+      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\codex-macos-v0.1.0",
+      "releaseGateCommand": "bash Run-macOS-Agent-Acceptance.sh --agent codex --package-root \"$PWD\" --results-root \"$PWD/macos-results\" --provider-gate --install-litellm-proxy"
     },
     "openclaw-v0.1.0": {
       "status": "not_release_level",
@@ -87,7 +89,8 @@
       "clean_macos_install": "pending",
       "provider_smoke": "implemented_pending_deepseek_smoke",
       "conversation_smoke": "implemented_pending_deepseek_smoke",
-      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\openclaw-macos-v0.1.0"
+      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\openclaw-macos-v0.1.0",
+      "releaseGateCommand": "bash Run-macOS-Agent-Acceptance.sh --agent openclaw --package-root \"$PWD\" --results-root \"$PWD/macos-results\" --provider-gate"
     },
     "cursor-v0.1.0": {
       "status": "not_release_level",
@@ -96,7 +99,8 @@
       "clean_macos_install": "pending",
       "provider_smoke": "manual_gui_pending",
       "conversation_smoke": "manual_gui_pending",
-      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\cursor-macos-v0.1.0"
+      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\cursor-macos-v0.1.0",
+      "releaseGateCommand": "bash Run-macOS-Agent-Acceptance.sh --agent cursor --package-root \"$PWD\" --results-root \"$PWD/macos-results\" --provider-gate"
     }
   },
   "currentBlockers": [

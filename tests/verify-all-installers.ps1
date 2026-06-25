@@ -236,7 +236,13 @@ if (-not $bash) {
     }
 }
 
-$shFiles = Get-ChildItem -Path (Join-Path $Root "installers") -Recurse -Filter "*.sh"
+$shFiles = @()
+foreach ($relative in @("installers", "shared")) {
+    $path = Join-Path $Root $relative
+    if (Test-Path $path) {
+        $shFiles += Get-ChildItem -Path $path -Recurse -Filter "*.sh"
+    }
+}
 if ($bash) {
     foreach ($file in $shFiles) {
         & $bash.Source -n $file.FullName

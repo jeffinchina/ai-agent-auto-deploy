@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          find installers -name '*.sh' -print0 | while IFS= read -r -d '' file; do
+          find installers shared -name '*.sh' -print0 | while IFS= read -r -d '' file; do
             bash -n "$file"
           done
       - name: Run shell dry-runs
