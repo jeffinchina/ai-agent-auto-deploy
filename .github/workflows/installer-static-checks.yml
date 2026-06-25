@@ -174,9 +174,14 @@ jobs:
           switch ($env:AGENT) {
             "codex" {
               if ($env:DEEPSEEK_SMOKE -eq "true") {
-                throw "Codex DeepSeek smoke requires a Responses-compatible bridge and is not implemented in Windows workflow yet."
+                if (-not $env:DEEPSEEK_API_KEY) {
+                  throw "DEEPSEEK_API_KEY repository secret is required for Codex Windows DeepSeek smoke."
+                }
+                powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\build-windows-agent-packages.ps1 -OutputDir .\dist\windows
+                powershell -NoProfile -ExecutionPolicy Bypass -File .\shared\vm\Run-Windows-Agent-Acceptance.ps1 -Agent codex -PackageRoot .\dist\windows -ResultsRoot smoke-artifacts -RunProviderGate -InstallLiteLLMProxy -NoPause
+              } else {
+                powershell -NoProfile -ExecutionPolicy Bypass -File .\installers\windows\codex\install.ps1 -SkipLoginHint
               }
-              powershell -NoProfile -ExecutionPolicy Bypass -File .\installers\windows\codex\install.ps1 -SkipLoginHint
               break
             }
             "openclaw" {

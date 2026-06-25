@@ -60,6 +60,25 @@ if (Test-Path $mockVerifier) {
     Pass "Windows installer mock verification passed"
 }
 
+$ledgerPath = Join-Path $Root "docs\release-acceptance-ledger.json"
+if (Test-Path $ledgerPath) {
+    try {
+        $ledger = Get-Content -LiteralPath $ledgerPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch {
+        Fail "Release acceptance ledger is not valid JSON: $($_.Exception.Message)"
+    }
+    foreach ($key in @("claude-code-v3.2.3", "codex-v0.1.0", "openclaw-v0.1.0", "cursor-v0.1.0")) {
+        if (-not $ledger.windows.$key) { Fail "Release acceptance ledger missing windows.$key" }
+    }
+    foreach ($key in @("claude-code-v0.1.0", "codex-v0.1.0", "openclaw-v0.1.0", "cursor-v0.1.0")) {
+        if (-not $ledger.macos.$key) { Fail "Release acceptance ledger missing macos.$key" }
+    }
+    if ($ledger.windows."cursor-v0.1.0".conversation_smoke -notmatch "manual_gui_pending") {
+        Fail "Cursor Windows conversation smoke must not be marked automated/pass until a real provider path is verified"
+    }
+    Pass "release acceptance ledger parses"
+}
+
 $buildScript = Join-Path $Root "tools\build-windows-agent-packages.ps1"
 if (Test-Path $buildScript) {
     $tempDist = Join-Path ([System.IO.Path]::GetTempPath()) ("ai-agent-auto-deploy-dist-" + [guid]::NewGuid().ToString("N"))

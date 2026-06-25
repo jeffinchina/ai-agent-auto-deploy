@@ -25,7 +25,7 @@ This matrix tracks the target release standard: install from a clean user enviro
 
 | Package | Static | Hosted smoke | Clean macOS VM / cloud Mac install | Provider smoke | Conversation smoke | Current release status |
 | --- | --- | --- | --- | --- | --- | --- |
-| Claude Code macOS v0.1.0 | Pass | Pending; needs runtime DeepSeek key | Pending | Pending | Pending | Not release-level yet. |
+| Claude Code macOS v0.1.0 | Pass | Pending; needs runtime DeepSeek key | Pending | Implemented in package, pending runner/real Mac run | Implemented in package, pending runner/real Mac run | Not release-level yet. |
 | Codex macOS v0.1.0 | Pass | Pass, runs `28137469599`, `28137905077` | Pending | LiteLLM bridge config implemented, pending runner/real Mac run | Implemented in package, pending runner/real Mac run | Not release-level yet. |
 | OpenClaw macOS v0.1.0 | Pass | Pass, run `28137681835` | Pending | Implemented in package, pending runner/real Mac run | Implemented in package, pending runner/real Mac run | Not release-level yet. |
 | Cursor macOS v0.1.0 | Pass | Pass, run `28137494682` | Pending | Pending provider setup | Pending | Not release-level yet. |

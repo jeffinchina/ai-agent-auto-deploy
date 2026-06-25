@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-06-25",
+  "targetStandard": "Clean environment install, DeepSeek provider setup, and minimal conversation proof through the actual agent path.",
+  "evidenceLevels": [
+    "static",
+    "hosted_smoke",
+    "clean_vm_install",
+    "provider_smoke",
+    "conversation_smoke"
+  ],
+  "windows": {
+    "claude-code-v3.2.3": {
+      "status": "baseline_pass_user_report",
+      "static": "pass",
+      "hosted_smoke": "not_applicable",
+      "clean_vm_install": "pass_user_report",
+      "provider_smoke": "pass_deepseek_direct_user_report",
+      "conversation_smoke": "pass_user_report",
+      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\ai-agent-auto-deploy-v3.2.3-windows.zip",
+      "remaining": [
+        "Capture structured sanitized artifact for the known-good baseline."
+      ]
+    },
+    "codex-v0.1.0": {
+      "status": "not_release_level",
+      "static": "pass",
+      "hosted_smoke": "pass_run_28138374078",
+      "clean_vm_install": "pending",
+      "provider_smoke": "implemented_litellm_bridge_pending_clean_vm",
+      "conversation_smoke": "pending_clean_vm_codex_exec",
+      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\codex-windows-v0.1.0",
+      "releaseGateCommand": "\\\\VBOXSVR\\CCDeployPackage\\Run-Windows-Agent-Acceptance-codex.cmd",
+      "notes": [
+        "Codex custom providers require a Responses-compatible endpoint.",
+        "The package prepares a LiteLLM bridge and can install Python/LiteLLM when requested."
+      ]
+    },
+    "openclaw-v0.1.0": {
+      "status": "not_release_level",
+      "static": "pass",
+      "hosted_smoke": "pass_run_28143299443",
+      "clean_vm_install": "pending",
+      "provider_smoke": "implemented_pending_clean_vm",
+      "conversation_smoke": "implemented_pending_clean_vm",
+      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\openclaw-windows-v0.1.0",
+      "releaseGateCommand": "\\\\VBOXSVR\\CCDeployPackage\\Run-Windows-Agent-Acceptance-openclaw.cmd"
+    },
+    "cursor-v0.1.0": {
+      "status": "not_release_level",
+      "static": "pass",
+      "hosted_smoke": "pass_run_28143299476",
+      "clean_vm_install": "pending",
+      "provider_smoke": "manual_gui_pending",
+      "conversation_smoke": "manual_gui_pending",
+      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\cursor-windows-v0.1.0",
+      "releaseGateCommand": "\\\\VBOXSVR\\CCDeployPackage\\Run-Windows-Agent-Acceptance-cursor.cmd",
+      "notes": [
+        "Windows package verifies Cursor desktop installation.",
+        "DeepSeek provider and conversation verification remain a GUI/manual gate unless a supported CLI path is confirmed."
+      ]
+    }
+  },
+  "macos": {
+    "claude-code-v0.1.0": {
+      "status": "not_release_level",
+      "static": "pass",
+      "hosted_smoke": "pending_deepseek_key",
+      "clean_macos_install": "pending",
+      "provider_smoke": "implemented_pending_runner_or_real_mac",
+      "conversation_smoke": "implemented_pending_runner_or_real_mac",
+      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\claude-code-macos-v0.1.0"
+    },
+    "codex-v0.1.0": {
+      "status": "not_release_level",
+      "static": "pass",
+      "hosted_smoke": "pass_runs_28137469599_28137905077",
+      "clean_macos_install": "pending",
+      "provider_smoke": "implemented_litellm_bridge_pending_deepseek_smoke",
+      "conversation_smoke": "implemented_pending_deepseek_smoke",
+      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\codex-macos-v0.1.0"
+    },
+    "openclaw-v0.1.0": {
+      "status": "not_release_level",
+      "static": "pass",
+      "hosted_smoke": "pass_run_28137681835",
+      "clean_macos_install": "pending",
+      "provider_smoke": "implemented_pending_deepseek_smoke",
+      "conversation_smoke": "implemented_pending_deepseek_smoke",
+      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\openclaw-macos-v0.1.0"
+    },
+    "cursor-v0.1.0": {
+      "status": "not_release_level",
+      "static": "pass",
+      "hosted_smoke": "pass_run_28137494682",
+      "clean_macos_install": "pending",
+      "provider_smoke": "manual_gui_pending",
+      "conversation_smoke": "manual_gui_pending",
+      "packageLocation": "D:\\VMs\\CCDeployTest\\Shared\\cursor-macos-v0.1.0"
+    }
+  },
+  "currentBlockers": [
+    "VirtualBox guestcontrol cannot run without a valid guest username/password file.",
+    "GitHub repository has no DEEPSEEK_API_KEY secret, so hosted DeepSeek smoke cannot run yet.",
+    "macOS release acceptance needs Apple hardware, cloud Mac, or a real Mac-based VM; a Windows-hosted macOS VM is not the release baseline."
+  ]
+}
